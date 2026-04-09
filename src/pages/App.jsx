@@ -441,7 +441,7 @@ function WelcomeScreen({intake,onStart}){
         </div>
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 20px 28px",background:`linear-gradient(to top,${T.bg} 80%,transparent)`}}>
           {step<steps.length-1?(
-            <Btn onClick={()=>setStep(s=>s+1)} style={{width:"100%",fontSize:17,padding:18}}>Continue →</Btn>
+            <Btn onClick={()=>setStep(prev=>prev+1)} style={{width:"100%",fontSize:17,padding:18}}>Continue →</Btn>
           ):(
             <Btn onClick={onStart} style={{width:"100%",fontSize:17,padding:18,boxShadow:"0 0 40px rgba(0,230,118,0.3)"}}>Start Day 1 →</Btn>
           )}
@@ -1154,11 +1154,11 @@ function IntakeScreen({onComplete}){
     </div>,
   ];
 
-  const handleNext=async()=>{
-    if(step<4){setStep(s=>s+1);return;}
+  const handleNext=()=>{
+    if(step<4){setStep(prev=>prev+1);return;}
     const startDate=new Date().toISOString();
     const intakeData={...data,startDate,yearly};
-    await onComplete(intakeData);
+    onComplete(intakeData);
   };
 
   return(
@@ -1172,7 +1172,7 @@ function IntakeScreen({onComplete}){
         <div style={{marginTop:28,minHeight:380}}>{steps[step]}</div>
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 20px 28px",background:`linear-gradient(to top,${T.bg} 80%,transparent)`}}>
           <div style={{display:"flex",gap:10}}>
-            {step>0&&<Btn variant="secondary" onClick={()=>setStep(s=>s-1)} style={{flex:1}}>←</Btn>}
+            {step>0&&<Btn variant="secondary" onClick={()=>setStep(prev=>prev-1)} style={{flex:1}}>←</Btn>}
             <Btn onClick={handleNext} disabled={!canNext()} style={{flex:2,fontSize:17,padding:17}}>
               {step===4?"Build My Plan →":"Continue →"}
             </Btn>
@@ -1218,31 +1218,31 @@ export default function App(){
     init();
   },[]);
 
-  const handleIntakeComplete=async(data)=>{
-    await saveIntake(token,data);
+  const handleIntakeComplete=(data)=>{
+    saveIntake(token,data); // fire and forget
     setIntake(data);
     setScreen("welcome");
   };
 
-  const handleWelcomeDone=async()=>{
+  const handleWelcomeDone=()=>{
     const newProgress={...progress,welcomed:true};
     setProgress(newProgress);
-    await saveProgress(token,{completed_tasks:newProgress.completedTasks,welcomed:true});
+    saveProgress(token,{completed_tasks:[],welcomed:true}); // fire and forget
     setScreen("dashboard");
   };
 
-  const handleLogCraving=async(craving)=>{
+  const handleLogCraving=(craving)=>{
     const updated=[...cravings,craving];
     setCravings(updated);
-    await saveCraving(token,craving);
+    saveCraving(token,craving); // fire and forget
   };
 
-  const handleTaskDone=async(day)=>{
+  const handleTaskDone=(day)=>{
     if(progress.completedTasks.includes(day))return;
     const newTasks=[...progress.completedTasks,day];
     const newProgress={...progress,completedTasks:newTasks};
     setProgress(newProgress);
-    await saveProgress(token,{completed_tasks:newTasks,welcomed:true});
+    saveProgress(token,{completed_tasks:newTasks,welcomed:true}); // fire and forget
   };
 
   if(screen==="loading")return(

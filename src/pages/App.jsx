@@ -1,4 +1,75 @@
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// ─── SUPABASE ───────────────────────────────────────────────────────
+// Replace these after creating your Supabase project
+const SUPABASE_URL = "https://srrxlvhggbhkoxiawcsg.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU";
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── SESSION TOKEN ──────────────────────────────────────────────────
+// Each user gets a unique token — their "login" across all devices
+const getToken = () => {
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get("s");
+  if (urlToken) {
+    localStorage.setItem("sq_token", urlToken);
+    window.history.replaceState({}, "", "/app");
+    return urlToken;
+  }
+  const stored = localStorage.getItem("sq_token");
+  if (stored) return stored;
+  const newToken = crypto.randomUUID();
+  localStorage.setItem("sq_token", newToken);
+  return newToken;
+};
+
+// ─── DATA LAYER ─────────────────────────────────────────────────────
+// localStorage = instant cache | Supabase = cross-device source of truth
+
+const lsGet = (k, d) => { try { const v = localStorage.getItem("sq_"+k); return v ? JSON.parse(v) : d; } catch { return d; }};
+const lsSet = (k, v) => localStorage.setItem("sq_"+k, JSON.stringify(v));
+
+const saveIntake = async (token, data) => {
+  lsSet("intake", data);
+  try { await sb.from("intake").upsert({ session_token: token, ...data }); } catch(e) { console.warn("Supabase sync:", e); }
+};
+const loadIntake = async (token) => {
+  try {
+    const { data } = await sb.from("intake").select("*").eq("session_token", token).maybeSingle();
+    if (data) { lsSet("intake", data); return data; }
+  } catch(e) { console.warn("Supabase load:", e); }
+  return lsGet("intake", null);
+};
+const saveCraving = async (token, craving) => {
+  const list = lsGet("cravings", []);
+  list.push(craving);
+  lsSet("cravings", list);
+  try { await sb.from("cravings").insert({ session_token: token, ...craving }); } catch(e) { console.warn(e); }
+};
+const loadCravings = async (token) => {
+  try {
+    const { data } = await sb.from("cravings").select("*").eq("session_token", token).order("timestamp", { ascending: true });
+    if (data?.length > 0) { lsSet("cravings", data); return data; }
+  } catch(e) { console.warn(e); }
+  return lsGet("cravings", []);
+};
+const saveProgress = async (token, progress) => {
+  lsSet("progress", progress);
+  try { await sb.from("progress").upsert({ session_token: token, ...progress }); } catch(e) { console.warn(e); }
+};
+const loadProgress = async (token) => {
+  try {
+    const { data } = await sb.from("progress").select("*").eq("session_token", token).maybeSingle();
+    if (data) { lsSet("progress", data); return data; }
+  } catch(e) { console.warn(e); }
+  return lsGet("progress", null);
+};
+
+// ─── HELPERS ───────────────────────────────────────────────────────
+const daysSince=(d)=>d?Math.floor((Date.now()-new Date(d).getTime())/(864e5)):0;
+const fmtMoney=(n)=>n<10?"$"+n.toFixed(2):"$"+Math.round(n).toLocaleString();
+const todayStr=()=>new Date().toDateString();
 
 // ─── THEME ─────────────────────────────────────────────────────────
 const T = {
@@ -8,13 +79,6 @@ const T = {
   red:"#ff5252",gold:"#ffd600",blue:"#40c4ff",orange:"#ff9800",
   border:"rgba(255,255,255,0.07)",
 };
-
-// ─── STORAGE ───────────────────────────────────────────────────────
-const save=(k,v)=>localStorage.setItem("sq_"+k,JSON.stringify(v));
-const load=(k,d)=>{try{const v=localStorage.getItem("sq_"+k);return v?JSON.parse(v):d;}catch{return d;}};
-const daysSince=(d)=>d?Math.floor((Date.now()-new Date(d).getTime())/(864e5)):0;
-const fmtMoney=(n)=>n<10?"$"+n.toFixed(2):"$"+Math.round(n).toLocaleString();
-const todayStr=()=>new Date().toDateString();
 
 // ─── DAILY CONTENT (all 21 days) ──────────────────────────────────
 const DAYS=[
@@ -782,32 +846,31 @@ function DayReader({dayData,onClose,onTaskDone,taskDone}){
 }
 
 // ─── MAIN DASHBOARD ────────────────────────────────────────────────
-function Dashboard({intake}){
+function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcomed:false},onLogCraving,onTaskDone}){
   const [showCraving,setShowCraving]=useState(false);
   const [showReader,setShowReader]=useState(false);
-  const [cravings,setCravings]=useState(()=>load("cravings",[]));
-  const [completedTasks,setCompletedTasks]=useState(()=>load("completedTasks",[]));
+  const [copied,setCopied]=useState(false);
 
-  const startDate=intake.startDate;
+  const startDate=intake.startDate||intake.start_date;
   const rawDay=daysSince(startDate)+1;
   const currentDay=Math.min(rawDay,21);
   const dayData=DAYS[currentDay-1];
   const isAwarenessDay=dayData.phase==="Awareness";
 
-  const dailySaved=(parseFloat(intake.weeklySpend)||0)/7;
+  const dailySaved=(parseFloat(intake.weeklySpend||intake.weekly_spend)||0)/7;
   const totalSaved=dailySaved*(rawDay-1);
+  const completedTasks=progress.completedTasks||[];
   const todayLogs=cravings.filter(c=>new Date(c.timestamp).toDateString()===todayStr());
   const todayCravingsBeat=todayLogs.filter(c=>c.type==="craving").length;
   const todaySmokes=todayLogs.filter(c=>c.type==="smoke").length;
   const taskDone=completedTasks.includes(currentDay);
   const phaseColor=dayData.phaseColor;
 
-  const handleLog=(data)=>{
-    const updated=[...cravings,data];
-    setCravings(updated);save("cravings",updated);
-  };
+  const personalLink=`https://smarterquit.com/app?s=${token}`;
+  const copyLink=()=>{navigator.clipboard.writeText(personalLink);setCopied(true);setTimeout(()=>setCopied(false),2500);};
+
   const markTaskDone=()=>{
-    if(!taskDone){const u=[...completedTasks,currentDay];setCompletedTasks(u);save("completedTasks",u);}
+    onTaskDone(currentDay);
     setShowReader(false);
   };
 
@@ -877,6 +940,21 @@ function Dashboard({intake}){
             </div>
           </div>
         )}
+
+        {/* PERSONAL LINK — access on any device */}
+        <div style={{padding:"16px 20px 0"}}>
+          <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,color:T.muted,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>📲 Your personal link</div>
+                <div style={{fontSize:12,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Use this to open your program on any device</div>
+              </div>
+              <button onClick={copyLink} style={{background:copied?T.greenDim:T.bg2,border:`1px solid ${copied?T.green:T.border}`,color:copied?T.green:T.muted,borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0,transition:"all 0.2s"}}>
+                {copied?"✓ Copied!":"Copy link"}
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* TODAY'S DAY CARD */}
         <div style={{padding:"16px 20px 0"}}>
@@ -996,7 +1074,7 @@ function Dashboard({intake}){
       {showCraving&&(
         <CravingModal
           onClose={()=>setShowCraving(false)}
-          onLog={handleLog}
+          onLog={onLogCraving}
           currentDay={currentDay}
           isAwarenessDay={isAwarenessDay}
         />
@@ -1076,12 +1154,11 @@ function IntakeScreen({onComplete}){
     </div>,
   ];
 
-  const handleNext=()=>{
+  const handleNext=async()=>{
     if(step<4){setStep(s=>s+1);return;}
     const startDate=new Date().toISOString();
-    const intake={...data,startDate,yearly};
-    save("intake",intake);save("startDate",startDate);save("cravings",[]);save("completedTasks",[]);
-    onComplete(intake);
+    const intakeData={...data,startDate,yearly};
+    await onComplete(intakeData);
   };
 
   return(
@@ -1110,25 +1187,74 @@ function IntakeScreen({onComplete}){
 export default function App(){
   const [screen,setScreen]=useState("loading");
   const [intake,setIntake]=useState(null);
+  const [token,setToken]=useState(null);
+  const [cravings,setCravings]=useState([]);
+  const [progress,setProgress]=useState({completedTasks:[],welcomed:false});
 
   useEffect(()=>{
-    const saved=load("intake",null);
-    if(saved?.startDate){
-      const welcomed=load("welcomed",false);
-      setIntake(saved);
-      setScreen(welcomed?"dashboard":"welcome");
-    }else{
-      setScreen("intake");
-    }
+    const init=async()=>{
+      const t=getToken();
+      setToken(t);
+      try{
+        const [intakeData,progressData,cravingData]=await Promise.all([
+          loadIntake(t),
+          loadProgress(t),
+          loadCravings(t),
+        ]);
+        if(cravingData?.length>0) setCravings(cravingData);
+        if(progressData) setProgress({completedTasks:progressData.completed_tasks||[],welcomed:progressData.welcomed||false});
+        if(intakeData?.startDate||intakeData?.start_date){
+          const normalized={...intakeData,startDate:intakeData.startDate||intakeData.start_date};
+          setIntake(normalized);
+          setScreen(progressData?.welcomed?"dashboard":"welcome");
+        }else{
+          setScreen("intake");
+        }
+      }catch(err){
+        console.warn("Init error:",err);
+        setScreen("intake");
+      }
+    };
+    init();
   },[]);
+
+  const handleIntakeComplete=async(data)=>{
+    await saveIntake(token,data);
+    setIntake(data);
+    setScreen("welcome");
+  };
+
+  const handleWelcomeDone=async()=>{
+    const newProgress={...progress,welcomed:true};
+    setProgress(newProgress);
+    await saveProgress(token,{completed_tasks:newProgress.completedTasks,welcomed:true});
+    setScreen("dashboard");
+  };
+
+  const handleLogCraving=async(craving)=>{
+    const updated=[...cravings,craving];
+    setCravings(updated);
+    await saveCraving(token,craving);
+  };
+
+  const handleTaskDone=async(day)=>{
+    if(progress.completedTasks.includes(day))return;
+    const newTasks=[...progress.completedTasks,day];
+    const newProgress={...progress,completedTasks:newTasks};
+    setProgress(newProgress);
+    await saveProgress(token,{completed_tasks:newTasks,welcomed:true});
+  };
 
   if(screen==="loading")return(
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
       <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:32,letterSpacing:"0.05em",color:T.white}}>Smarter<span style={{color:T.green}}>Quit</span></div>
       <div style={{color:T.muted,fontSize:14}}>Loading your program...</div>
+      <div style={{width:40,height:4,background:T.bg3,borderRadius:99,overflow:"hidden"}}>
+        <div style={{height:"100%",width:"60%",background:T.green,borderRadius:99,animation:"pulse 1s infinite"}}/>
+      </div>
     </div>
   );
-  if(screen==="intake")return <IntakeScreen onComplete={d=>{setIntake(d);setScreen("welcome");}}/>;
-  if(screen==="welcome")return <WelcomeScreen intake={intake} onStart={()=>{save("welcomed",true);setScreen("dashboard");}}/>;
-  return <Dashboard intake={intake}/>;
+  if(screen==="intake")return <IntakeScreen onComplete={handleIntakeComplete}/>;
+  if(screen==="welcome")return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
+  return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone}/>;
 }

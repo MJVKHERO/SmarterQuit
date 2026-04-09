@@ -425,7 +425,7 @@ function WelcomeScreen({intake,onStart}){
        </div>
      </>},
   ];
-  const s=steps[step];
+  const currentSlide=steps[step];
   return(
     <div style={{minHeight:"100vh",background:T.bg,color:T.white,fontFamily:"system-ui,sans-serif"}}>
       <div style={{maxWidth:480,margin:"0 auto",padding:"24px 20px 100px"}}>
@@ -435,9 +435,9 @@ function WelcomeScreen({intake,onStart}){
         </div>
         <PBar value={step+1} max={steps.length} height={4}/>
         <div style={{marginTop:32,marginBottom:24}}>
-          <div style={{fontSize:40,marginBottom:16}}>{s.icon}</div>
-          <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,lineHeight:1.3,marginBottom:20,color:T.white}}>{s.title}</h2>
-          {s.content}
+          <div style={{fontSize:40,marginBottom:16}}>{currentSlide.icon}</div>
+          <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,lineHeight:1.3,marginBottom:20,color:T.white}}>{currentSlide.title}</h2>
+          {currentSlide.content}
         </div>
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 20px 28px",background:`linear-gradient(to top,${T.bg} 80%,transparent)`}}>
           {step<steps.length-1?(

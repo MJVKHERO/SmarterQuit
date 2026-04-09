@@ -545,10 +545,10 @@ function BreathingTimer({onComplete,trigger}){
         <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:20,margin:"16px 0 8px",color:T.white}}>This craving will pass in 3 minutes.</div>
         <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:24}}>Start the breathing timer. Breathe with the circle. By the time it ends, the craving will be smaller. Every time.</p>
         <div style={{background:T.bg3,borderRadius:12,padding:"14px 16px",marginBottom:24,textAlign:"left"}}>
-          {resp.steps.map((s,i)=>(
+          {resp.steps.map((stepText,i)=>(
             <div key={i} style={{display:"flex",gap:10,marginBottom:i<resp.steps.length-1?12:0,alignItems:"flex-start"}}>
               <span style={{color:resp.color,fontWeight:800,flexShrink:0,marginTop:1}}>{i+1}.</span>
-              <p style={{fontSize:14,color:"rgba(240,244,248,0.85)",margin:0,lineHeight:1.5}}>{s}</p>
+              <p style={{fontSize:14,color:"rgba(240,244,248,0.85)",margin:0,lineHeight:1.5}}>{stepText}</p>
             </div>
           ))}
         </div>
@@ -902,7 +902,7 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
 
         {/* Stats */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:T.border,margin:"16px 0 0",borderTop:`1px solid ${T.border}`,borderBottom:`1px solid ${T.border}`}}>
-          {isAwarenessDay?[
+          {(isAwarenessDay?[
             {label:"Saved",value:fmtMoney(totalSaved),emoji:"💰",color:T.green},
             {label:"Smokes today",value:`${todaySmokes} logged`,emoji:"📊",color:T.gold},
             {label:"Day",value:`${currentDay} of 21`,emoji:"🗓️",color:phaseColor},
@@ -910,11 +910,11 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
             {label:"Saved",value:fmtMoney(totalSaved),emoji:"💰",color:T.green},
             {label:"Days free",value:`${currentDay} days`,emoji:"🚭",color:T.blue},
             {label:"Beaten today",value:`${todayCravingsBeat}`,emoji:"💪",color:T.gold},
-          ]}.map((s,i)=>(
+          ]).map((stat,i)=>(
             <div key={i} style={{background:T.bg2,padding:"14px 8px",textAlign:"center"}}>
-              <div style={{fontSize:16,marginBottom:2}}>{s.emoji}</div>
-              <div style={{fontSize:14,fontWeight:800,color:s.color,lineHeight:1.2}}>{s.value}</div>
-              <div style={{fontSize:10,color:T.muted,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{s.label}</div>
+              <div style={{fontSize:16,marginBottom:2}}>{stat.emoji}</div>
+              <div style={{fontSize:14,fontWeight:800,color:stat.color,lineHeight:1.2}}>{stat.value}</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em"}}>{stat.label}</div>
             </div>
           ))}
         </div>

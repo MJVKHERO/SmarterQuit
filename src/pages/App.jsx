@@ -93,6 +93,7 @@ const loadIntake = async (token) => {
         quitType:    data.quit_type    || data.quitType,
         weeklySpend: data.weekly_spend || data.weeklySpend,
         startDate:   data.start_date   || data.startDate,
+        quitDate:    data.quit_date    || data.quitDate || null,
       };
       lsSet("intake", normalized);
       return normalized;
@@ -150,7 +151,6 @@ const saveProgress = async (token, prog) => {
     const { error } = await sb.from("progress").upsert({
       session_token:   token,
       completed_tasks: prog.completed_tasks || [],
-      days_read:       prog.days_read || [],
       welcomed:        prog.welcomed || false,
       updated_at:      new Date().toISOString(),
     });
@@ -159,24 +159,30 @@ const saveProgress = async (token, prog) => {
 };
 const loadProgress = async (token) => {
   if(!token) return lsGet("progress", null);
+  const local = lsGet("progress", null);
   try {
-    const { data, error } = await sb.from("progress").select("*").eq("session_token", token).maybeSingle();
+    const { data, error } = await sb.from("progress")
+      .select("session_token,completed_tasks,welcomed,updated_at")
+      .eq("session_token", token)
+      .maybeSingle();
     if(error) console.error("loadProgress error:", JSON.stringify(error));
     if (data) {
-      const normalized = {
+      const remote = {
         ...data,
         completed_tasks: Array.isArray(data.completed_tasks)
           ? data.completed_tasks
-          : (typeof data.completed_tasks === "string" ? JSON.parse(data.completed_tasks) : []),
-        days_read: Array.isArray(data.days_read)
-          ? data.days_read
-          : (typeof data.days_read === "string" ? JSON.parse(data.days_read) : []),
+          : [],
       };
-      lsSet("progress", normalized);
-      return normalized;
+      // Use whichever has MORE completed tasks — prevents old remote from overwriting new local
+      const localTasks = local?.completed_tasks || [];
+      const remoteTasks = remote.completed_tasks || [];
+      const merged = [...new Set([...localTasks, ...remoteTasks])];
+      const best = {...remote, completed_tasks: merged};
+      lsSet("progress", best);
+      return best;
     }
   } catch(e) { console.error("loadProgress exception:", e); }
-  return lsGet("progress", null);
+  return local;
 };
 const findTokenByEmail = async (email) => {
   try {
@@ -189,7 +195,7 @@ const findTokenByEmail = async (email) => {
 const daysSince=(d)=>d?Math.floor((Date.now()-new Date(d).getTime())/(864e5)):0;
 const fmtMoney=(n)=>{
   if(n<0.01) return "$0.00";
-  if(n<10) return "$"+n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  if(n<1) return "$"+n.toFixed(2);
   if(n<100) return "$"+n.toFixed(2);
   return "$"+Math.round(n).toLocaleString();
 };
@@ -447,6 +453,21 @@ const DAYS=[
    task:{emoji:"🎉",title:"Celebrate. You've earned it.",desc:"Do the thing you chose on Day 20. Tell one person what you've accomplished. Let them celebrate with you. You did something real. That deserves a real moment."},
    milestone:{emoji:"🎉",text:"21 Days — You Are Free",sub:"You are no longer a smoker. You are someone who doesn't smoke."},
   },
+];
+
+// ─── HEALTH TIMELINE ─────────────────────────────────────────────
+const HEALING=[
+  {mins:20,   label:"20 min",  icon:"❤️", title:"Heart rate drops",      desc:"Your blood pressure and heart rate begin to normalize."},
+  {mins:120,  label:"2 hrs",   icon:"🩸", title:"Nicotine clears blood",  desc:"Nicotine levels in your blood have dropped significantly."},
+  {mins:480,  label:"8 hrs",   icon:"💨", title:"CO halved",              desc:"Carbon monoxide in your blood drops by 50%. More oxygen."},
+  {mins:1440, label:"24 hrs",  icon:"🫁", title:"Heart attack risk drops", desc:"Your risk of a heart attack begins to decrease."},
+  {mins:2880, label:"48 hrs",  icon:"👃", title:"Smell & taste return",   desc:"Nerve endings start to regrow. Food tastes better already."},
+  {mins:4320, label:"3 days",  icon:"🌬️", title:"Breathing easier",       desc:"Bronchial tubes relax. Lung capacity starts improving."},
+  {mins:10080,label:"1 week",  icon:"🏃", title:"Circulation improves",   desc:"Blood flow to hands and feet measurably better."},
+  {mins:20160,label:"2 weeks", icon:"💪", title:"Lung function +30%",     desc:"Your lungs work 30% better than on Day 1."},
+  {mins:43200,label:"1 month", icon:"🧠", title:"Dopamine normalizing",   desc:"Brain chemistry recovering. Natural pleasures feel real again."},
+  {mins:131400,label:"3 months",icon:"⚡",title:"No more smoker's cough", desc:"Cilia fully recovered. Airways clear."},
+  {mins:525600,label:"1 year", icon:"🎉", title:"Heart disease risk halved",desc:"Your risk of coronary heart disease is now half of a smoker's."},
 ];
 
 // ─── CRAVING RESPONSES ─────────────────────────────────────────────
@@ -974,36 +995,238 @@ function DayReader({dayData,onClose,onTaskDone,taskDone}){
   );
 }
 
+// ─── HEALTH TIMELINE ─────────────────────────────────────────────────
+function HealthTimeline({startDate,isAwarenessDay}){
+  const [expanded,setExpanded]=useState(false);
+  if(isAwarenessDay||!startDate) return null;
+
+  const elapsedMins=(Date.now()-new Date(startDate).getTime())/60000;
+  // Find current milestone
+  const achieved=HEALING.filter(h=>elapsedMins>=h.mins);
+  const next=HEALING.find(h=>elapsedMins<h.mins);
+  const pct=next?Math.min(100,((elapsedMins-(achieved[achieved.length-1]?.mins||0))/(next.mins-(achieved[achieved.length-1]?.mins||0)))*100):100;
+
+  // Time until next milestone
+  const minsLeft=next?Math.round(next.mins-elapsedMins):0;
+  const fmtTime=(m)=>{
+    if(m<60) return `${m}m`;
+    if(m<1440) return `${Math.round(m/60)}h`;
+    return `${Math.round(m/1440)}d`;
+  };
+
+  const last=achieved[achieved.length-1];
+
+  return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,overflow:"hidden"}}>
+        {/* Header */}
+        <div onClick={()=>setExpanded(!expanded)} style={{padding:"14px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:22}}>{last?.icon||"❤️"}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:2}}>Your body right now</div>
+            <div style={{fontSize:14,fontWeight:600}}>{last?.title||"Healing started"}</div>
+            {next&&<div style={{fontSize:12,color:T.muted,marginTop:2}}>Next: {next.icon} {next.title} in {fmtTime(minsLeft)}</div>}
+          </div>
+          <span style={{color:T.muted,fontSize:18,transition:"transform 0.2s",transform:expanded?"rotate(180deg)":"none"}}>›</span>
+        </div>
+
+        {/* Progress to next */}
+        {next&&<div style={{padding:"0 16px 12px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:T.muted,marginBottom:4}}>
+            <span>{last?.label||"Start"}</span>
+            <span>{next.label}</span>
+          </div>
+          <PBar value={pct} max={100} color={T.green} height={4}/>
+        </div>}
+
+        {/* Expanded timeline */}
+        {expanded&&(
+          <div style={{borderTop:`1px solid ${T.border}`,padding:"12px 16px"}}>
+            {HEALING.map((h,i)=>{
+              const done=elapsedMins>=h.mins;
+              const isNext=h===next;
+              return(
+                <div key={i} style={{display:"flex",gap:12,marginBottom:14,alignItems:"flex-start",opacity:done?1:isNext?0.7:0.35}}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:done?T.greenDim:T.bg2,border:`1px solid ${done?T.green:T.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>
+                    {done?"✓":h.icon}
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:done?T.white:T.muted}}>{h.label} — {h.title}</div>
+                    <div style={{fontSize:12,color:T.muted,lineHeight:1.4}}>{h.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── CRAVING PATTERN ─────────────────────────────────────────────────
+function CravingPattern({cravings}){
+  if(!cravings||cravings.length<3) return null;
+
+  // Group cravings by hour of day
+  const hours=Array(24).fill(0);
+  cravings.forEach(c=>{
+    const ts=c.timestamp||c.created_at;
+    if(!ts) return;
+    const h=new Date(ts).getHours();
+    hours[h]++;
+  });
+
+  const maxVal=Math.max(...hours,1);
+  const labels=["12am","","","3am","","","6am","","","9am","","","12pm","","","3pm","","","6pm","","","9pm","",""];
+
+  // Find peak hours
+  const peakHour=hours.indexOf(Math.max(...hours));
+  const peakLabel=peakHour<12?`${peakHour||12}am`:`${peakHour===12?12:peakHour-12}pm`;
+
+  // Trigger breakdown
+  const triggers={};
+  cravings.forEach(c=>{if(c.trigger)triggers[c.trigger]=(triggers[c.trigger]||0)+1;});
+  const topTrigger=Object.entries(triggers).sort((a,b)=>b[1]-a[1])[0];
+
+  const RESP={"stress":{emoji:"😤",label:"Stress"},"boredom":{emoji:"😴",label:"Boredom"},"habit":{emoji:"🔁",label:"Habit"},"social":{emoji:"👥",label:"Social"}};
+
+  return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:11,color:T.blue,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:12}}>📊 Your craving pattern</div>
+
+        {/* Hourly bar chart */}
+        <div style={{display:"flex",alignItems:"flex-end",gap:2,height:48,marginBottom:8}}>
+          {hours.map((val,i)=>(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center"}}>
+              <div style={{
+                width:"100%",
+                height:val>0?`${Math.max(10,(val/maxVal)*44)}px`:"2px",
+                background:val>0?(i===peakHour?T.red:"rgba(0,230,118,0.5)"):"rgba(255,255,255,0.05)",
+                borderRadius:2,transition:"height 0.3s",
+              }}/>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:T.muted,marginBottom:12}}>
+          {labels.map((l,i)=><span key={i}>{l}</span>)}
+        </div>
+
+        {/* Stats row */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{background:T.bg2,borderRadius:10,padding:"10px 12px"}}>
+            <div style={{fontSize:11,color:T.muted,marginBottom:3}}>Peak craving time</div>
+            <div style={{fontSize:16,fontWeight:700,color:T.red}}>{peakLabel}</div>
+          </div>
+          {topTrigger&&<div style={{background:T.bg2,borderRadius:10,padding:"10px 12px"}}>
+            <div style={{fontSize:11,color:T.muted,marginBottom:3}}>Biggest trigger</div>
+            <div style={{fontSize:16,fontWeight:700,color:T.gold}}>
+              {RESP[topTrigger[0]]?.emoji} {RESP[topTrigger[0]]?.label||topTrigger[0]}
+            </div>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── STOP EARLY MODAL ────────────────────────────────────────────────
+function StopEarlyModal({onConfirm,onCancel,startDate}){
+  const elapsedMins=startDate?(Date.now()-new Date(startDate).getTime())/60000:0;
+  const hoursSmokeFree=Math.floor(elapsedMins/60);
+  const daysFree=Math.floor(elapsedMins/1440);
+
+  return(
+    <div style={{padding:"4px 0",textAlign:"center"}}>
+      <div style={{fontSize:40,marginBottom:12}}>🚭</div>
+      <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,marginBottom:8}}>Ready to stop now?</h3>
+      <p style={{color:T.muted,fontSize:15,lineHeight:1.6,marginBottom:20}}>
+        You've been smoke-free for <strong style={{color:T.white}}>{daysFree>0?`${daysFree} days and `:""}{hoursSmokeFree%24} hours</strong>. You can skip ahead to the detox phase anytime you feel ready.
+      </p>
+      <div style={{background:T.greenDim,border:`1px solid ${T.greenBorder}`,borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
+        <p style={{color:T.green,fontSize:14,margin:0,lineHeight:1.6}}>
+          💡 <strong style={{color:T.white}}>What happens next:</strong> Your Day 1 awareness data is saved. The program switches to Day 4 — the first detox day. Your cravings will be real, but you have the tools.
+        </p>
+      </div>
+      <Btn onClick={onConfirm} style={{width:"100%",marginBottom:10}}>Yes, I've stopped — start detox now 🔥</Btn>
+      <Btn variant="ghost" onClick={onCancel} style={{width:"100%"}}>Not yet — keep observing</Btn>
+    </div>
+  );
+}
+
+// ─── SMOKEFREE TIMER ─────────────────────────────────────────────────
+function SmokefreTimer({startDate,isAwarenessDay,quitDate}){
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{
+    const i=setInterval(()=>setNow(Date.now()),1000);
+    return()=>clearInterval(i);
+  },[]);
+
+  // For awareness days, show time since last smoke (use quitDate if set)
+  const refDate=quitDate||(!isAwarenessDay?startDate:null);
+  if(!refDate) return null;
+
+  const elapsed=Math.max(0,now-new Date(refDate).getTime());
+  const days=Math.floor(elapsed/864e5);
+  const hours=Math.floor((elapsed%864e5)/36e5);
+  const mins=Math.floor((elapsed%36e5)/6e4);
+  const secs=Math.floor((elapsed%6e4)/1000);
+
+  return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:"linear-gradient(135deg,rgba(0,230,118,0.08),rgba(0,230,118,0.03))",border:`1px solid ${T.greenBorder}`,borderRadius:14,padding:"16px 20px"}}>
+        <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:10}}>⏱️ Smoke-free for</div>
+        <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+          {[["Days",days],["Hours",hours],["Mins",mins],["Secs",secs]].map(([l,v])=>(
+            <div key={l} style={{textAlign:"center",flex:1}}>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:32,color:T.green,lineHeight:1}}>{String(v).padStart(2,"0")}</div>
+              <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN DASHBOARD ────────────────────────────────────────────────
-function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcomed:false},onLogCraving,onTaskDone,onDayRead}){
+function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcomed:false},onLogCraving,onTaskDone,onDayRead,onStopEarly}){
   const [showCraving,setShowCraving]=useState(false);
   const [showReader,setShowReader]=useState(false);
+  const [showStopEarly,setShowStopEarly]=useState(false);
+  const [activeTab,setActiveTab]=useState("today"); // today | health | pattern
   const [copied,setCopied]=useState(false);
   const [now,setNow]=useState(Date.now());
 
-  // Tick every second so savings counter updates live
   useEffect(()=>{
     const interval=setInterval(()=>setNow(Date.now()),1000);
     return()=>clearInterval(interval);
   },[]);
 
   const startDate=intake.startDate||intake.start_date;
+  const quitDate=intake.quitDate||intake.quit_date||null;
   const rawDay=daysSince(startDate)+1;
   const currentDay=Math.min(rawDay,21);
   const dayData=DAYS[currentDay-1];
   const isAwarenessDay=dayData.phase==="Awareness";
 
-  // Calculate savings based on exact elapsed seconds — updates every second
+  // Savings
   const weeklySpend=parseFloat(intake.weeklySpend||intake.weekly_spend)||0;
   const perSecond=weeklySpend/(7*24*60*60);
   const elapsedSeconds=startDate?(now-new Date(startDate).getTime())/1000:0;
   const totalSaved=Math.max(0,perSecond*elapsedSeconds);
+
+  // Streak — consecutive days with at least 1 log or task
   const completedTasks=progress.completedTasks||[];
   const todayLogs=cravings.filter(c=>isToday(c.timestamp||c.created_at));
   const todayCravingsBeat=todayLogs.filter(c=>c.type==="craving").length;
   const todaySmokes=todayLogs.filter(c=>c.type==="smoke").length;
   const taskDone=completedTasks.includes(currentDay);
   const phaseColor=dayData.phaseColor;
+
+  // Streak calc — days in a row with activity
+  const streak=currentDay; // simplified: days since start = streak if they're here
 
   const personalLink=token?`https://smarterquit.com/app?s=${token}`:"";
   const copyLink=()=>{
@@ -1035,9 +1258,18 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
         {/* Top header */}
         <div style={{padding:"20px 20px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:"0.05em"}}>Smarter<span style={{color:T.green}}>Quit</span></div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Day</div>
-            <div style={{fontSize:24,fontWeight:800,color:phaseColor,lineHeight:1}}>{currentDay}<span style={{color:T.muted,fontSize:14}}>/21</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {/* Streak badge */}
+            {!isAwarenessDay&&streak>0&&(
+              <div style={{background:"rgba(255,214,0,0.1)",border:"1px solid rgba(255,214,0,0.25)",borderRadius:8,padding:"4px 10px",display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:14}}>🔥</span>
+                <span style={{fontSize:13,fontWeight:700,color:T.gold}}>{streak}</span>
+              </div>
+            )}
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>Day</div>
+              <div style={{fontSize:24,fontWeight:800,color:phaseColor,lineHeight:1}}>{currentDay}<span style={{color:T.muted,fontSize:14}}>/21</span></div>
+            </div>
           </div>
         </div>
 
@@ -1069,148 +1301,194 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
           ))}
         </div>
 
-        {/* Milestone banner */}
-        {dayData.milestone&&(
-          <div style={{margin:"16px 20px 0",background:`linear-gradient(135deg,${T.greenDim},rgba(0,230,118,0.04))`,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:20,textAlign:"center"}}>
-            <div style={{fontSize:40,marginBottom:8}}>{dayData.milestone.emoji}</div>
-            <div style={{fontWeight:800,fontSize:18,color:T.green}}>{dayData.milestone.text}</div>
-            <div style={{color:T.muted,fontSize:14,marginTop:4}}>{dayData.milestone.sub}</div>
-          </div>
-        )}
-
-        {/* Awareness phase context banner */}
-        {isAwarenessDay&&(
-          <div style={{margin:"16px 20px 0",background:"rgba(255,214,0,0.06)",border:"1px solid rgba(255,214,0,0.2)",borderRadius:14,padding:"16px 18px"}}>
-            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-              <span style={{fontSize:20,flexShrink:0}}>💛</span>
-              <div>
-                <div style={{fontWeight:700,fontSize:14,color:T.gold,marginBottom:4}}>Awareness Day — you can still smoke today</div>
-                <p style={{color:"rgba(255,214,0,0.7)",fontSize:13,lineHeight:1.5,margin:0}}>Every time you're about to smoke, tap the button below first. Log before and after. This data is your weapon for Day 4.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PERSONAL LINK — access on any device */}
-        <div style={{padding:"16px 20px 0"}}>
-          <div style={{background:"linear-gradient(135deg,rgba(0,176,255,0.08),rgba(0,176,255,0.03))",border:"1px solid rgba(0,176,255,0.25)",borderRadius:14,padding:"16px 18px"}}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
-              <span style={{fontSize:22,flexShrink:0}}>📲</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:700,fontSize:14,color:T.blue,marginBottom:4}}>Your personal link — save this!</div>
-                <p style={{color:"rgba(0,176,255,0.7)",fontSize:13,lineHeight:1.5,margin:"0 0 12px"}}>Use this link to open your program on any phone, tablet, or computer. If you lose access, you can always recover with your email.</p>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <div style={{flex:1,background:T.bg2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    smarterquit.com/app?s={token?token.slice(0,8):"..."}...
-                  </div>
-                  <button onClick={copyLink} style={{background:copied?"rgba(0,230,118,0.15)":"rgba(0,176,255,0.15)",border:`1px solid ${copied?T.green:"rgba(0,176,255,0.4)"}`,color:copied?T.green:T.blue,borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0,transition:"all 0.2s",whiteSpace:"nowrap"}}>
-                    {copied?"✓ Copied!":"Copy link"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* TAB NAVIGATION */}
+        <div style={{display:"flex",gap:1,background:T.border,margin:"16px 0 0"}}>
+          {[["today","📅 Today"],["health","❤️ Health"],["pattern","📊 Pattern"]].map(([tab,label])=>(
+            <button key={tab} onClick={()=>setActiveTab(tab)} style={{
+              flex:1,padding:"11px 8px",border:"none",cursor:"pointer",
+              background:activeTab===tab?T.bg3:T.bg2,
+              color:activeTab===tab?T.white:T.muted,
+              fontSize:12,fontWeight:activeTab===tab?700:500,
+              fontFamily:"inherit",transition:"all 0.15s",
+            }}>{label}</button>
+          ))}
         </div>
 
-        {/* TODAY'S DAY CARD */}
-        <div style={{padding:"16px 20px 0"}}>
-          <div onClick={()=>setShowReader(true)} style={{
-            background:T.bg3,border:`1px solid ${T.border}`,borderRadius:16,padding:20,
-            cursor:"pointer",transition:"border-color 0.2s",
-            borderLeft:`3px solid ${phaseColor}`,
-          }}>
-            <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
-              <span style={{fontSize:36,flexShrink:0}}>{dayData.emoji}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11,color:phaseColor,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Day {currentDay} • Tap to read</div>
-                <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:18,lineHeight:1.3,marginBottom:6}}>{dayData.title}</h2>
-                <p style={{color:T.muted,fontSize:13,margin:0,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{dayData.subtitle}</p>
-              </div>
-              <div style={{background:phaseColor,color:"#000",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,flexShrink:0}}>Read →</div>
+        {/* TAB: TODAY */}
+        {activeTab==="today"&&<>
+          {/* Milestone banner */}
+          {dayData.milestone&&(
+            <div style={{margin:"16px 20px 0",background:`linear-gradient(135deg,${T.greenDim},rgba(0,230,118,0.04))`,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:20,textAlign:"center"}}>
+              <div style={{fontSize:40,marginBottom:8}}>{dayData.milestone.emoji}</div>
+              <div style={{fontWeight:800,fontSize:18,color:T.green}}>{dayData.milestone.text}</div>
+              <div style={{color:T.muted,fontSize:14,marginTop:4}}>{dayData.milestone.sub}</div>
             </div>
-            <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span style={{fontSize:13,color:T.muted}}>📋 {dayData.task.title}</span>
-              {taskDone?(
-                <span style={{fontSize:13,color:T.green,fontWeight:600}}>✓ Done</span>
-              ):(
-                <span style={{fontSize:12,color:T.muted,background:T.bg2,padding:"4px 10px",borderRadius:100}}>Not done</span>
-              )}
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Today's log (awareness) */}
-        {isAwarenessDay&&todaySmokes>0&&(
-          <div style={{padding:"16px 20px 0"}}>
-            <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Today's smokes logged</p>
-            {todayLogs.filter(c=>c.type==="smoke").map((c,i)=>{
-              const r=CRAVING_RESP[c.trigger];
-              const gap=(c.craving||5)-(c.satisfaction||5);
-              return(
-                <div key={i} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-                  <span style={{fontSize:20}}>{r?.emoji||"🚬"}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600}}>{r?.label||"Unknown"} trigger</div>
-                    <div style={{fontSize:12,color:T.muted}}>Craving: {c.craving}/10{c.satisfaction?` → Satisfaction: ${c.satisfaction}/10`:""}</div>
+          {/* Awareness banner + stop early button */}
+          {isAwarenessDay&&(
+            <div style={{margin:"16px 20px 0"}}>
+              <div style={{background:"rgba(255,214,0,0.06)",border:"1px solid rgba(255,214,0,0.2)",borderRadius:14,padding:"16px 18px",marginBottom:10}}>
+                <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <span style={{fontSize:20,flexShrink:0}}>💛</span>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14,color:T.gold,marginBottom:4}}>Awareness Day — you can still smoke today</div>
+                    <p style={{color:"rgba(255,214,0,0.7)",fontSize:13,lineHeight:1.5,margin:0}}>Log every smoke before you light up. This data becomes your weapon.</p>
                   </div>
-                  {gap>1&&<div style={{background:"rgba(0,230,118,0.1)",border:"1px solid rgba(0,230,118,0.2)",borderRadius:8,padding:"4px 8px",fontSize:11,color:T.green,textAlign:"center"}}>
-                    Gap: {gap}pt
-                  </div>}
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Today's cravings beaten (non-awareness) */}
-        {!isAwarenessDay&&todayCravingsBeat>0&&(
-          <div style={{padding:"16px 20px 0"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",margin:0}}>Cravings beaten today</p>
-              <Tag color={T.gold}>{todayCravingsBeat} total</Tag>
-            </div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {todayLogs.filter(c=>c.type==="craving").map((c,i)=>(
-                <div key={i} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 12px",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
-                  {CRAVING_RESP[c.trigger]?.emoji||"💪"}
-                  <span style={{color:T.muted,fontSize:12}}>{CRAVING_RESP[c.trigger]?.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* What's coming */}
-        {currentDay<21&&(
-          <div style={{padding:"16px 20px 0"}}>
-            <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Coming up</p>
-            <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
-              {DAYS.slice(currentDay,Math.min(currentDay+4,21)).map(d=>(
-                <div key={d.day} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 14px",flexShrink:0,minWidth:110,opacity:0.75}}>
-                  <div style={{fontSize:22,marginBottom:6}}>{d.emoji}</div>
-                  <div style={{fontSize:11,color:d.phaseColor,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Day {d.day}</div>
-                  <div style={{fontSize:13,fontWeight:600,lineHeight:1.3,color:T.white}}>{d.title}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Day 21 complete */}
-        {currentDay>=21&&(
-          <div style={{padding:"16px 20px 0"}}>
-            <div style={{background:`linear-gradient(135deg,${T.greenDim},rgba(0,230,118,0.04))`,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:24,textAlign:"center"}}>
-              <div style={{fontSize:52,marginBottom:12}}>🎉</div>
-              <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:24,marginBottom:8}}>21 days. You did it.</h2>
-              <p style={{color:T.muted,fontSize:15,marginBottom:20}}>You are no longer a smoker. You are someone who doesn't smoke.</p>
-              <div style={{background:T.bg2,borderRadius:12,padding:16,marginBottom:16}}>
-                <div style={{color:T.muted,fontSize:13,marginBottom:4}}>Total saved</div>
-                <div style={{color:T.green,fontSize:42,fontWeight:800}}>{fmtMoney(totalSaved)}</div>
               </div>
-              <p style={{color:T.muted,fontSize:13}}>Your savings counter keeps growing. Your health keeps improving. Keep the door closed.</p>
+              {/* Stop early option */}
+              <button onClick={()=>setShowStopEarly(true)} style={{width:"100%",background:"rgba(0,230,118,0.06)",border:"1px solid rgba(0,230,118,0.2)",borderRadius:12,padding:"12px 16px",cursor:"pointer",fontFamily:"inherit",color:T.green,fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                🚭 I've already stopped — skip to detox phase
+              </button>
+            </div>
+          )}
+
+          {/* Smoke-free timer (non-awareness days) */}
+          {!isAwarenessDay&&<SmokefreTimer startDate={startDate} isAwarenessDay={isAwarenessDay} quitDate={quitDate}/>}
+
+          {/* TODAY'S DAY CARD */}
+          <div style={{padding:"16px 20px 0"}}>
+            <div onClick={()=>setShowReader(true)} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:16,padding:20,cursor:"pointer",borderLeft:`3px solid ${phaseColor}`}}>
+              <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+                <span style={{fontSize:36,flexShrink:0}}>{dayData.emoji}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11,color:phaseColor,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Day {currentDay} • Tap to read</div>
+                  <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:18,lineHeight:1.3,marginBottom:6}}>{dayData.title}</h2>
+                  <p style={{color:T.muted,fontSize:13,margin:0,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{dayData.subtitle}</p>
+                </div>
+                <div style={{background:phaseColor,color:"#000",borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,flexShrink:0}}>Read →</div>
+              </div>
+              <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{fontSize:13,color:T.muted}}>📋 {dayData.task.title}</span>
+                {taskDone?(
+                  <span style={{fontSize:13,color:T.green,fontWeight:600}}>✓ Done</span>
+                ):(
+                  <span style={{fontSize:12,color:T.muted,background:T.bg2,padding:"4px 10px",borderRadius:100}}>Not done</span>
+                )}
+              </div>
             </div>
           </div>
-        )}
+
+          {/* Today's logs */}
+          {isAwarenessDay&&todaySmokes>0&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Today's smokes logged</p>
+              {todayLogs.filter(c=>c.type==="smoke").map((c,i)=>{
+                const r=CRAVING_RESP[c.trigger];
+                const gap=(c.craving||5)-(c.satisfaction||5);
+                const ts=c.timestamp||c.created_at;
+                const timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+                return(
+                  <div key={i} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:10,padding:"12px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:20}}>{r?.emoji||"🚬"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{r?.label||"Unknown"} trigger</div>
+                      <div style={{fontSize:12,color:T.muted}}>{timeStr} · Craving: {c.craving||"?"}/10{c.satisfaction?` → Satisfaction: ${c.satisfaction}/10`:""}</div>
+                    </div>
+                    {gap>1&&<div style={{background:"rgba(0,230,118,0.1)",border:"1px solid rgba(0,230,118,0.2)",borderRadius:8,padding:"4px 8px",fontSize:11,color:T.green}}>-{gap}pt</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!isAwarenessDay&&todayCravingsBeat>0&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",margin:0}}>Cravings beaten today</p>
+                <Tag color={T.gold}>{todayCravingsBeat} total</Tag>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {todayLogs.filter(c=>c.type==="craving").map((c,i)=>{
+                  const ts=c.timestamp||c.created_at;
+                  const timeStr=ts?new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+                  return(
+                    <div key={i} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:8,padding:"6px 12px",fontSize:12,display:"flex",alignItems:"center",gap:6}}>
+                      {CRAVING_RESP[c.trigger]?.emoji||"💪"}
+                      <span style={{color:T.muted}}>{timeStr}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Personal link */}
+          <div style={{padding:"16px 20px 0"}}>
+            <div style={{background:"linear-gradient(135deg,rgba(0,176,255,0.08),rgba(0,176,255,0.03))",border:"1px solid rgba(0,176,255,0.25)",borderRadius:14,padding:"14px 16px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:18,flexShrink:0}}>📲</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,color:T.blue,marginBottom:2}}>Your personal link — save this!</div>
+                  <div style={{fontSize:11,color:"rgba(0,176,255,0.6)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>smarterquit.com/app?s={token?token.slice(0,8):"..."}...</div>
+                </div>
+                <button onClick={copyLink} style={{background:copied?"rgba(0,230,118,0.15)":"rgba(0,176,255,0.15)",border:`1px solid ${copied?T.green:"rgba(0,176,255,0.4)"}`,color:copied?T.green:T.blue,borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0,whiteSpace:"nowrap"}}>
+                  {copied?"✓ Copied!":"Copy"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Coming up */}
+          {currentDay<21&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <p style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:10}}>Coming up</p>
+              <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                {DAYS.slice(currentDay,Math.min(currentDay+4,21)).map(d=>(
+                  <div key={d.day} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 14px",flexShrink:0,minWidth:110,opacity:0.75}}>
+                    <div style={{fontSize:22,marginBottom:6}}>{d.emoji}</div>
+                    <div style={{fontSize:11,color:d.phaseColor,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>Day {d.day}</div>
+                    <div style={{fontSize:13,fontWeight:600,lineHeight:1.3}}>{d.title}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Day 21 complete */}
+          {currentDay>=21&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <div style={{background:`linear-gradient(135deg,${T.greenDim},rgba(0,230,118,0.04))`,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:24,textAlign:"center"}}>
+                <div style={{fontSize:52,marginBottom:12}}>🎉</div>
+                <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:24,marginBottom:8}}>21 days. You did it.</h2>
+                <p style={{color:T.muted,fontSize:15,marginBottom:20}}>You are no longer a smoker. You are someone who doesn't smoke.</p>
+                <div style={{background:T.bg2,borderRadius:12,padding:16,marginBottom:16}}>
+                  <div style={{color:T.muted,fontSize:13,marginBottom:4}}>Total saved</div>
+                  <div style={{color:T.green,fontSize:42,fontWeight:800}}>{fmtMoney(totalSaved)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>}
+
+        {/* TAB: HEALTH */}
+        {activeTab==="health"&&<>
+          {!isAwarenessDay&&<SmokefreTimer startDate={startDate} isAwarenessDay={false} quitDate={quitDate}/>}
+          <HealthTimeline startDate={isAwarenessDay?null:startDate} isAwarenessDay={isAwarenessDay}/>
+          {isAwarenessDay&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:20,textAlign:"center"}}>
+                <div style={{fontSize:36,marginBottom:12}}>⏳</div>
+                <p style={{color:T.muted,fontSize:15,lineHeight:1.6}}>Your healing timeline starts when you stop smoking. Complete the awareness phase first — your body's recovery begins the moment you stop.</p>
+              </div>
+            </div>
+          )}
+        </>}
+
+        {/* TAB: PATTERN */}
+        {activeTab==="pattern"&&<>
+          <CravingPattern cravings={cravings}/>
+          {cravings.length<3&&(
+            <div style={{padding:"16px 20px 0"}}>
+              <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:20,textAlign:"center"}}>
+                <div style={{fontSize:36,marginBottom:12}}>📊</div>
+                <p style={{color:T.muted,fontSize:15,lineHeight:1.6}}>Log at least 3 cravings to see your personal pattern. Every tap of the craving button adds a data point.</p>
+              </div>
+            </div>
+          )}
+        </>}
+
       </div>
 
       {/* Fixed CTA */}
@@ -1227,6 +1505,7 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
         {!isAwarenessDay&&<p style={{textAlign:"center",fontSize:12,color:T.muted,marginTop:8}}>Start the 3-minute breathing timer</p>}
       </div>
 
+      {/* Modals */}
       {showCraving&&(
         <CravingModal
           onClose={()=>setShowCraving(false)}
@@ -1235,8 +1514,20 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
           isAwarenessDay={isAwarenessDay}
         />
       )}
+
+      {showStopEarly&&(
+        <BottomSheet onClose={()=>setShowStopEarly(false)}>
+          <StopEarlyModal
+            startDate={startDate}
+            onCancel={()=>setShowStopEarly(false)}
+            onConfirm={()=>{
+              setShowStopEarly(false);
+              if(onStopEarly) onStopEarly();
+            }}
+          />
+        </BottomSheet>
+      )}
     </div>
-  );
 }
 
 // ─── INTAKE FLOW ────────────────────────────────────────────────────
@@ -1493,7 +1784,7 @@ export default function App(){
   const handleWelcomeDone=()=>{
     const newProgress={...progress,welcomed:true};
     setProgress(newProgress);
-    saveProgress(token,{completed_tasks:[],days_read:[],welcomed:true});
+    saveProgress(token,{completed_tasks:[],welcomed:true});
     setScreen("dashboard");
   };
 
@@ -1506,27 +1797,31 @@ export default function App(){
   const handleTaskDone=(day)=>{
     if(progress.completedTasks.includes(day))return;
     const newTasks=[...progress.completedTasks,day];
-    const newDaysRead=[...new Set([...(progress.days_read||[]),day])];
-    const newProgress={...progress,completedTasks:newTasks,days_read:newDaysRead};
+    const newProgress={...progress,completedTasks:newTasks};
     setProgress(newProgress);
     saveProgress(token,{
       completed_tasks:newTasks,
-      days_read:newDaysRead,
-      welcomed:true
+      welcomed:true,
     });
   };
 
-  // Track when a day is opened/read
   const handleDayRead=(day)=>{
+    // tracked locally only for now
     const newDaysRead=[...new Set([...(progress.days_read||[]),day])];
-    if(newDaysRead.length===(progress.days_read||[]).length) return; // already tracked
-    const newProgress={...progress,days_read:newDaysRead};
-    setProgress(newProgress);
-    saveProgress(token,{
-      completed_tasks:progress.completedTasks||[],
-      days_read:newDaysRead,
-      welcomed:true
-    });
+    setProgress(prev=>({...prev,days_read:newDaysRead}));
+  };
+
+  const handleStopEarly=()=>{
+    const quitDate=new Date().toISOString();
+    const newIntake={...intake,quitDate};
+    setIntake(newIntake);
+    // Save quit_date to Supabase intake
+    if(token) sb.from("intake").upsert({
+      session_token:token,
+      quit_date:quitDate,
+      updated_at:new Date().toISOString(),
+    }).then(({error})=>{if(error)console.error("stopEarly save:",error);});
+    lsSet("intake",newIntake);
   };
 
   if(screen==="loading")return(
@@ -1542,5 +1837,5 @@ export default function App(){
   if(screen==="noaccess") return <NoAccessScreen/>;
   if(screen==="intake")   return <IntakeScreen onComplete={handleIntakeComplete}/>;
   if(screen==="welcome")  return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
-  return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone} onDayRead={handleDayRead}/>;
+  return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone} onDayRead={handleDayRead} onStopEarly={handleStopEarly}/>;
 }

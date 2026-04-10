@@ -1,44 +1,64 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── SUPABASE ───────────────────────────────────────────────────────
-// Replace these after creating your Supabase project
+// ─── SUPABASE ────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://srrxlvhggbhkoxiawcsg.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ─── SESSION TOKEN ──────────────────────────────────────────────────
-// Each user gets a unique token — their "login" across all devices
-const getToken = () => {
+// ─── PAYMENT GATE ────────────────────────────────────────────────────
+// After Stripe payment, success URL is: /app?cs={CHECKOUT_SESSION_ID}
+// Personal link is: /app?s=TOKEN
+// Returning on same device: localStorage has token + paid flag
+const checkAccess = () => {
   const params = new URLSearchParams(window.location.search);
-  const urlToken = params.get("s");
-  if (urlToken) {
-    localStorage.setItem("sq_token", urlToken);
+  const csSession = params.get("cs");   // Stripe checkout session ID
+  const sToken    = params.get("s");    // Personal link token
+
+  // New paying customer coming from Stripe
+  if (csSession && csSession.startsWith("cs_")) {
+    const newToken = crypto.randomUUID();
+    localStorage.setItem("sq_token", newToken);
+    localStorage.setItem("sq_paid", "true");
+    localStorage.setItem("sq_stripe", csSession);
     window.history.replaceState({}, "", "/app");
-    return urlToken;
+    return { token: newToken, paid: true, isNew: true };
   }
-  const stored = localStorage.getItem("sq_token");
-  if (stored) return stored;
-  const newToken = crypto.randomUUID();
-  localStorage.setItem("sq_token", newToken);
-  return newToken;
+
+  // Returning user via personal link
+  if (sToken) {
+    localStorage.setItem("sq_token", sToken);
+    localStorage.setItem("sq_paid", "true");
+    window.history.replaceState({}, "", "/app");
+    return { token: sToken, paid: true, isNew: false };
+  }
+
+  // Same device — check localStorage
+  const storedToken = localStorage.getItem("sq_token");
+  const storedPaid  = localStorage.getItem("sq_paid");
+  if (storedToken && storedPaid === "true") {
+    return { token: storedToken, paid: true, isNew: false };
+  }
+
+  // Not paid — no access
+  return { token: null, paid: false, isNew: false };
 };
 
-// ─── DATA LAYER ─────────────────────────────────────────────────────
-// localStorage = instant cache | Supabase = cross-device source of truth
-
+// ─── DATA LAYER ──────────────────────────────────────────────────────
 const lsGet = (k, d) => { try { const v = localStorage.getItem("sq_"+k); return v ? JSON.parse(v) : d; } catch { return d; }};
 const lsSet = (k, v) => localStorage.setItem("sq_"+k, JSON.stringify(v));
 
 const saveIntake = async (token, data) => {
-  lsSet("intake", data);
-  try { await sb.from("intake").upsert({ session_token: token, ...data }); } catch(e) { console.warn("Supabase sync:", e); }
+  // normalize email to lowercase before saving
+  const normalized = data.email ? {...data, email: data.email.toLowerCase().trim()} : data;
+  lsSet("intake", normalized);
+  try { await sb.from("intake").upsert({ session_token: token, ...normalized, updated_at: new Date().toISOString() }); } catch(e) { console.warn("Supabase intake:", e); }
 };
 const loadIntake = async (token) => {
   try {
     const { data } = await sb.from("intake").select("*").eq("session_token", token).maybeSingle();
     if (data) { lsSet("intake", data); return data; }
-  } catch(e) { console.warn("Supabase load:", e); }
+  } catch(e) { console.warn("Supabase loadIntake:", e); }
   return lsGet("intake", null);
 };
 const saveCraving = async (token, craving) => {
@@ -49,14 +69,14 @@ const saveCraving = async (token, craving) => {
 };
 const loadCravings = async (token) => {
   try {
-    const { data } = await sb.from("cravings").select("*").eq("session_token", token).order("timestamp", { ascending: true });
+    const { data } = await sb.from("cravings").select("*").eq("session_token", token).order("timestamp",{ascending:true});
     if (data?.length > 0) { lsSet("cravings", data); return data; }
   } catch(e) { console.warn(e); }
   return lsGet("cravings", []);
 };
-const saveProgress = async (token, progress) => {
-  lsSet("progress", progress);
-  try { await sb.from("progress").upsert({ session_token: token, ...progress }); } catch(e) { console.warn(e); }
+const saveProgress = async (token, prog) => {
+  lsSet("progress", prog);
+  try { await sb.from("progress").upsert({ session_token: token, ...prog, updated_at: new Date().toISOString() }); } catch(e) { console.warn(e); }
 };
 const loadProgress = async (token) => {
   try {
@@ -65,8 +85,14 @@ const loadProgress = async (token) => {
   } catch(e) { console.warn(e); }
   return lsGet("progress", null);
 };
+const findTokenByEmail = async (email) => {
+  try {
+    const { data } = await sb.from("intake").select("session_token").eq("email", email.toLowerCase().trim()).maybeSingle();
+    return data?.session_token || null;
+  } catch(e) { return null; }
+};
 
-// ─── HELPERS ───────────────────────────────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────────────────────
 const daysSince=(d)=>d?Math.floor((Date.now()-new Date(d).getTime())/(864e5)):0;
 const fmtMoney=(n)=>n<10?"$"+n.toFixed(2):"$"+Math.round(n).toLocaleString();
 const todayStr=()=>new Date().toDateString();
@@ -866,8 +892,13 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   const taskDone=completedTasks.includes(currentDay);
   const phaseColor=dayData.phaseColor;
 
-  const personalLink=`https://smarterquit.com/app?s=${token}`;
-  const copyLink=()=>{navigator.clipboard.writeText(personalLink);setCopied(true);setTimeout(()=>setCopied(false),2500);};
+  const personalLink=token?`https://smarterquit.com/app?s=${token}`:"";
+  const copyLink=()=>{
+    if(!personalLink)return;
+    navigator.clipboard.writeText(personalLink);
+    setCopied(true);
+    setTimeout(()=>setCopied(false),2500);
+  };
 
   const markTaskDone=()=>{
     onTaskDone(currentDay);
@@ -943,15 +974,21 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
 
         {/* PERSONAL LINK — access on any device */}
         <div style={{padding:"16px 20px 0"}}>
-          <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+          <div style={{background:"linear-gradient(135deg,rgba(0,176,255,0.08),rgba(0,176,255,0.03))",border:"1px solid rgba(0,176,255,0.25)",borderRadius:14,padding:"16px 18px"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+              <span style={{fontSize:22,flexShrink:0}}>📲</span>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:11,color:T.muted,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:4}}>📲 Your personal link</div>
-                <div style={{fontSize:12,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Use this to open your program on any device</div>
+                <div style={{fontWeight:700,fontSize:14,color:T.blue,marginBottom:4}}>Your personal link — save this!</div>
+                <p style={{color:"rgba(0,176,255,0.7)",fontSize:13,lineHeight:1.5,margin:"0 0 12px"}}>Use this link to open your program on any phone, tablet, or computer. If you lose access, you can always recover with your email.</p>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <div style={{flex:1,background:T.bg2,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",fontSize:11,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    smarterquit.com/app?s={token?token.slice(0,8):"..."}...
+                  </div>
+                  <button onClick={copyLink} style={{background:copied?"rgba(0,230,118,0.15)":"rgba(0,176,255,0.15)",border:`1px solid ${copied?T.green:"rgba(0,176,255,0.4)"}`,color:copied?T.green:T.blue,borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0,transition:"all 0.2s",whiteSpace:"nowrap"}}>
+                    {copied?"✓ Copied!":"Copy link"}
+                  </button>
+                </div>
               </div>
-              <button onClick={copyLink} style={{background:copied?T.greenDim:T.bg2,border:`1px solid ${copied?T.green:T.border}`,color:copied?T.green:T.muted,borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0,transition:"all 0.2s"}}>
-                {copied?"✓ Copied!":"Copy link"}
-              </button>
             </div>
           </div>
         </div>
@@ -1086,10 +1123,18 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
 // ─── INTAKE FLOW ────────────────────────────────────────────────────
 function IntakeScreen({onComplete}){
   const [step,setStep]=useState(0);
-  const [data,setData]=useState({quitType:"",amount:10,years:"",weeklySpend:"",reason:"",name:""});
+  const [data,setData]=useState({quitType:"",amount:10,years:"",weeklySpend:"",reason:"",email:""});
   const set=(k,v)=>setData(d=>({...d,[k]:v}));
   const yearly=Math.round((parseFloat(data.weeklySpend)||0)*52);
-  const canNext=[()=>!!data.quitType,()=>data.amount>0,()=>!!data.years,()=>data.weeklySpend>0,()=>!!data.reason][step];
+  const canNextFns=[
+    ()=>!!data.quitType,
+    ()=>data.amount>0,
+    ()=>!!data.years,
+    ()=>data.weeklySpend>0,
+    ()=>!!data.reason,
+    ()=>!!data.email&&data.email.includes("@"),
+  ];
+  const canNext=canNextFns[step]||(() =>false);
 
   const steps=[
     <div key={0}>
@@ -1152,10 +1197,24 @@ function IntakeScreen({onComplete}){
         </div>
       ))}
     </div>,
+    <div key={5}>
+      <div style={{fontSize:48,marginBottom:16,textAlign:"center"}}>📧</div>
+      <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:24,marginBottom:8}}>Your recovery email</h2>
+      <p style={{color:T.muted,marginBottom:12,fontSize:15,lineHeight:1.6}}>If you ever lose access — switch phones, clear your browser — enter this email on the login screen and we'll recover your program instantly.</p>
+      <div style={{background:"rgba(0,176,255,0.06)",border:"1px solid rgba(0,176,255,0.2)",borderRadius:12,padding:"12px 16px",marginBottom:20}}>
+        <p style={{color:T.blue,fontSize:13,margin:0,lineHeight:1.5}}>💡 We only use this for account recovery. No marketing, no newsletters.</p>
+      </div>
+      <input
+        type="email" value={data.email} onChange={e=>set("email",e.target.value)}
+        placeholder="you@example.com"
+        style={{width:"100%",background:T.bg2,border:`1px solid ${data.email.includes("@")?T.green:T.border}`,borderRadius:12,color:T.white,padding:"18px 20px",fontSize:18,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}
+      />
+      {data.email.includes("@")&&<p style={{color:T.green,fontSize:13,marginTop:8}}>✓ Looks good</p>}
+    </div>,
   ];
 
   const handleNext=()=>{
-    if(step<4){setStep(prev=>prev+1);return;}
+    if(step<5){setStep(prev=>prev+1);return;}
     const startDate=new Date().toISOString();
     const intakeData={...data,startDate,yearly};
     onComplete(intakeData);
@@ -1166,15 +1225,15 @@ function IntakeScreen({onComplete}){
       <div style={{maxWidth:480,margin:"0 auto",padding:"24px 20px 120px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:28}}>
           <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:"0.05em"}}>Smarter<span style={{color:T.green}}>Quit</span></div>
-          <span style={{fontSize:13,color:T.muted}}>Step {step+1} of 5</span>
+          <span style={{fontSize:13,color:T.muted}}>Step {step+1} of 6</span>
         </div>
-        <PBar value={step+1} max={5} height={4}/>
+        <PBar value={step+1} max={6} height={4}/>
         <div style={{marginTop:28,minHeight:380}}>{steps[step]}</div>
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 20px 28px",background:`linear-gradient(to top,${T.bg} 80%,transparent)`}}>
           <div style={{display:"flex",gap:10}}>
             {step>0&&<Btn variant="secondary" onClick={()=>setStep(prev=>prev-1)} style={{flex:1}}>←</Btn>}
             <Btn onClick={handleNext} disabled={!canNext()} style={{flex:2,fontSize:17,padding:17}}>
-              {step===4?"Build My Plan →":"Continue →"}
+              {step===5?"Build My Plan →":"Continue →"}
             </Btn>
           </div>
         </div>
@@ -1183,7 +1242,69 @@ function IntakeScreen({onComplete}){
   );
 }
 
-// ─── ROOT ───────────────────────────────────────────────────────────
+// ─── NO ACCESS SCREEN ────────────────────────────────────────────────
+function NoAccessScreen(){
+  const [email,setEmail]=useState("");
+  const [status,setStatus]=useState("idle"); // idle | loading | found | notfound
+  const personalLink = status==="found" ? `https://smarterquit.com/app?s=${lsGet("recovery_token","?")}` : "";
+
+  const handleRecover=async()=>{
+    if(!email.trim())return;
+    setStatus("loading");
+    const token=await findTokenByEmail(email);
+    if(token){
+      lsSet("recovery_token",token);
+      setStatus("found");
+    } else {
+      setStatus("notfound");
+    }
+  };
+
+  return(
+    <div style={{minHeight:"100vh",background:T.bg,color:T.white,fontFamily:"system-ui,sans-serif",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
+        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:28,letterSpacing:"0.05em",marginBottom:32}}>Smarter<span style={{color:T.green}}>Quit</span></div>
+
+        {status==="found"?(
+          <div style={{background:T.greenDim,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:28}}>
+            <div style={{fontSize:36,marginBottom:12}}>✅</div>
+            <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,marginBottom:12}}>Found your account!</h2>
+            <p style={{color:T.muted,fontSize:15,marginBottom:20,lineHeight:1.6}}>Tap the button below to open your program. Bookmark this link to always have access.</p>
+            <a href={personalLink} style={{display:"block",background:T.green,color:"#000",fontWeight:800,fontSize:16,padding:"16px 24px",borderRadius:10,textDecoration:"none",marginBottom:12}}>
+              Open My Program →
+            </a>
+            <p style={{fontSize:12,color:T.muted,wordBreak:"break-all"}}>{personalLink}</p>
+          </div>
+        ):(
+          <>
+            <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:16,padding:28,marginBottom:20}}>
+              <div style={{fontSize:36,marginBottom:12}}>🔒</div>
+              <h2 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,marginBottom:8}}>Program access required</h2>
+              <p style={{color:T.muted,fontSize:15,marginBottom:20,lineHeight:1.6}}>This program requires a purchase. Already bought it? Enter your email to recover your personal link.</p>
+              <input
+                type="email" value={email} onChange={e=>setEmail(e.target.value)}
+                placeholder="Your email address"
+                style={{width:"100%",background:T.bg2,border:`1px solid ${T.border}`,borderRadius:10,color:T.white,padding:"14px 16px",fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:12}}
+              />
+              <button
+                onClick={handleRecover} disabled={status==="loading"||!email.trim()}
+                style={{width:"100%",background:T.green,color:"#000",border:"none",borderRadius:10,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:(!email.trim()||status==="loading")?0.5:1}}
+              >
+                {status==="loading"?"Searching...":"Recover My Access →"}
+              </button>
+              {status==="notfound"&&<p style={{color:T.red,fontSize:13,marginTop:10}}>No account found with this email. Try a different address or purchase below.</p>}
+            </div>
+            <a href="/" style={{display:"block",background:T.bg3,color:T.muted,border:`1px solid ${T.border}`,borderRadius:10,padding:"14px",fontSize:15,fontWeight:600,textDecoration:"none"}}>
+              ← Get the program for $7.99
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT ────────────────────────────────────────────────────────────
 export default function App(){
   const [screen,setScreen]=useState("loading");
   const [intake,setIntake]=useState(null);
@@ -1193,13 +1314,20 @@ export default function App(){
 
   useEffect(()=>{
     const init=async()=>{
-      const t=getToken();
-      setToken(t);
+      // Check payment access first
+      const access=checkAccess();
+      if(!access.paid){
+        setScreen("noaccess");
+        return;
+      }
+
+      setToken(access.token);
+
       try{
         const [intakeData,progressData,cravingData]=await Promise.all([
-          loadIntake(t),
-          loadProgress(t),
-          loadCravings(t),
+          loadIntake(access.token),
+          loadProgress(access.token),
+          loadCravings(access.token),
         ]);
         if(cravingData?.length>0) setCravings(cravingData);
         if(progressData) setProgress({completedTasks:progressData.completed_tasks||[],welcomed:progressData.welcomed||false});
@@ -1219,7 +1347,7 @@ export default function App(){
   },[]);
 
   const handleIntakeComplete=(data)=>{
-    saveIntake(token,data); // fire and forget
+    saveIntake(token,data); // email is included in data, saved as lowercase
     setIntake(data);
     setScreen("welcome");
   };
@@ -1227,14 +1355,14 @@ export default function App(){
   const handleWelcomeDone=()=>{
     const newProgress={...progress,welcomed:true};
     setProgress(newProgress);
-    saveProgress(token,{completed_tasks:[],welcomed:true}); // fire and forget
+    saveProgress(token,{completed_tasks:[],welcomed:true});
     setScreen("dashboard");
   };
 
   const handleLogCraving=(craving)=>{
     const updated=[...cravings,craving];
     setCravings(updated);
-    saveCraving(token,craving); // fire and forget
+    saveCraving(token,craving);
   };
 
   const handleTaskDone=(day)=>{
@@ -1242,7 +1370,7 @@ export default function App(){
     const newTasks=[...progress.completedTasks,day];
     const newProgress={...progress,completedTasks:newTasks};
     setProgress(newProgress);
-    saveProgress(token,{completed_tasks:newTasks,welcomed:true}); // fire and forget
+    saveProgress(token,{completed_tasks:newTasks,welcomed:true});
   };
 
   if(screen==="loading")return(
@@ -1250,11 +1378,13 @@ export default function App(){
       <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:32,letterSpacing:"0.05em",color:T.white}}>Smarter<span style={{color:T.green}}>Quit</span></div>
       <div style={{color:T.muted,fontSize:14}}>Loading your program...</div>
       <div style={{width:40,height:4,background:T.bg3,borderRadius:99,overflow:"hidden"}}>
-        <div style={{height:"100%",width:"60%",background:T.green,borderRadius:99,animation:"pulse 1s infinite"}}/>
+        <div style={{height:"100%",width:"60%",background:T.green,borderRadius:99}}/>
       </div>
     </div>
   );
-  if(screen==="intake")return <IntakeScreen onComplete={handleIntakeComplete}/>;
-  if(screen==="welcome")return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
+
+  if(screen==="noaccess") return <NoAccessScreen/>;
+  if(screen==="intake")   return <IntakeScreen onComplete={handleIntakeComplete}/>;
+  if(screen==="welcome")  return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
   return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone}/>;
 }

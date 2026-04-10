@@ -64,16 +64,41 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem("sq_"+k); return 
 const lsSet = (k, v) => localStorage.setItem("sq_"+k, JSON.stringify(v));
 
 const saveIntake = async (token, data) => {
-  // normalize email to lowercase before saving
   const normalized = data.email ? {...data, email: data.email.toLowerCase().trim()} : data;
   lsSet("intake", normalized);
-  try { await sb.from("intake").upsert({ session_token: token, ...normalized, updated_at: new Date().toISOString() }); } catch(e) { console.warn("Supabase intake:", e); }
+  // Map JS camelCase fields explicitly to Supabase column names
+  try {
+    await sb.from("intake").upsert({
+      session_token:  token,
+      quit_type:      normalized.quitType   || normalized.quit_type,
+      amount:         normalized.amount,
+      years:          normalized.years,
+      weekly_spend:   normalized.weeklySpend || normalized.weekly_spend,
+      reason:         normalized.reason,
+      email:          normalized.email,
+      start_date:     normalized.startDate  || normalized.start_date,
+      yearly:         normalized.yearly,
+      updated_at:     new Date().toISOString(),
+    });
+  } catch(e) { console.warn("Supabase intake:", e); }
 };
+
 const loadIntake = async (token) => {
   try {
     const { data } = await sb.from("intake").select("*").eq("session_token", token).maybeSingle();
-    if (data) { lsSet("intake", data); return data; }
+    if (data) {
+      // Normalize Supabase snake_case back to camelCase for the app
+      const normalized = {
+        ...data,
+        quitType:    data.quit_type    || data.quitType,
+        weeklySpend: data.weekly_spend || data.weeklySpend,
+        startDate:   data.start_date   || data.startDate,
+      };
+      lsSet("intake", normalized);
+      return normalized;
+    }
   } catch(e) { console.warn("Supabase loadIntake:", e); }
+  // Fallback to localStorage (same device)
   return lsGet("intake", null);
 };
 const saveCraving = async (token, craving) => {
@@ -1360,16 +1385,28 @@ export default function App(){
           loadCravings(access.token),
         ]);
         if(cravingData?.length>0) setCravings(cravingData);
-        if(progressData) setProgress({completedTasks:progressData.completed_tasks||[],welcomed:progressData.welcomed||false});
-        if(intakeData?.startDate||intakeData?.start_date){
-          const normalized={...intakeData,startDate:intakeData.startDate||intakeData.start_date};
+        if(progressData) setProgress({
+          completedTasks:progressData.completed_tasks||[],
+          welcomed:progressData.welcomed||false
+        });
+
+        // Check startDate in all possible field names
+        const startDate=intakeData?.startDate||intakeData?.start_date||intakeData?.startdate;
+
+        if(intakeData && startDate){
+          const normalized={...intakeData, startDate};
           setIntake(normalized);
-          setScreen(progressData?.welcomed?"dashboard":"welcome");
+          // If they've been here before (have progress or cravings) → always dashboard
+          // Only show welcome onboarding if truly brand new
+          const hasActivity=(cravingData?.length>0)||(progressData?.completed_tasks?.length>0);
+          const shouldWelcome=!progressData?.welcomed && !hasActivity;
+          setScreen(shouldWelcome?"welcome":"dashboard");
         }else{
           setScreen("intake");
         }
       }catch(err){
         console.warn("Init error:",err);
+        // Don't send to intake on error — show a retry screen instead
         setScreen("intake");
       }
     };

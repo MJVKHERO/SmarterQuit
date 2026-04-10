@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-const STRIPE_LINK = "https://buy.stripe.com/REPLACE_WITH_YOUR_LINK"
+// ⚠️  STAP 1: Vervang met jouw echte Stripe Payment Link URL
+// STAP 2: Stel in Stripe de "Success URL" in op:
+//         https://smarterquit.com/app?cs={CHECKOUT_SESSION_ID}
+//         (de {CHECKOUT_SESSION_ID} vult Stripe automatisch in)
+const STRIPE_LINK = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
 
 export default function Landing() {
   const [scrolled, setScrolled] = useState(false)
@@ -81,11 +85,13 @@ export default function Landing() {
             <span><strong style={{color:'var(--white)'}}>Money-back guarantee</strong> — complete the program, still smoke? Full refund, no questions.</span>
           </div>
           {/* Payment logos */}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:4}}>
             <span style={{fontSize:11,color:'var(--muted)'}}>Accepted:</span>
-            {['💳 Visa','💳 Mastercard',' Apple Pay','🤖 Google Pay','🔒 SSL'].map(l=>(
-              <span key={l} style={{background:'rgba(255,255,255,0.05)',border:'1px solid var(--border)',borderRadius:6,padding:'4px 9px',fontSize:11,color:'var(--muted)',fontWeight:600}}>{l}</span>
-            ))}
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png" alt="Visa" style={{height:16,borderRadius:3,background:'#fff',padding:'2px 5px'}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/200px-Mastercard-logo.svg.png" alt="Mastercard" style={{height:20,borderRadius:3}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/200px-Apple_Pay_logo.svg.png" alt="Apple Pay" style={{height:20,borderRadius:3,background:'#000',padding:'2px 6px'}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/200px-Google_Pay_Logo.svg.png" alt="Google Pay" style={{height:18,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
+            <span style={{fontSize:11,color:'var(--muted)',display:'flex',alignItems:'center',gap:3}}>🔒 SSL</span>
           </div>
         </div>
       </section>
@@ -257,10 +263,12 @@ export default function Landing() {
           </div>
           <button onClick={go} className="btn" style={{fontSize:19,padding:'21px 40px',marginBottom:12}}>Start My Quit Journey →</button>
           <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>🛡️ Money-back guarantee &nbsp;•&nbsp; No download &nbsp;•&nbsp; Works on any phone</div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,marginTop:10,flexWrap:'wrap'}}>
-            {['Visa','Mastercard','Apple Pay','Google Pay','🔒 SSL'].map(l=>(
-              <span key={l} style={{background:'rgba(255,255,255,0.05)',border:'1px solid var(--border)',borderRadius:5,padding:'3px 8px',fontSize:10,color:'var(--muted)',fontWeight:600}}>{l}</span>
-            ))}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:10}}>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png" alt="Visa" style={{height:14,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/200px-Mastercard-logo.svg.png" alt="Mastercard" style={{height:18,borderRadius:3}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/200px-Apple_Pay_logo.svg.png" alt="Apple Pay" style={{height:18,borderRadius:3,background:'#000',padding:'2px 5px'}}/>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/200px-Google_Pay_Logo.svg.png" alt="Google Pay" style={{height:16,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
+            <span style={{fontSize:11,color:'var(--muted)'}}>🔒 SSL</span>
           </div>
         </div>
       </section>

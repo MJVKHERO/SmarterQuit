@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 // STAP 2: Stel in Stripe de "Success URL" in op:
 //         https://smarterquit.com/app?cs={CHECKOUT_SESSION_ID}
 //         (de {CHECKOUT_SESSION_ID} vult Stripe automatisch in)
-const STRIPE_LINK = "https://buy.stripe.com/test_cNi00l9gL9LJfP2cBl2Ry00"
+const STRIPE_LINK = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
 
 export default function Landing() {
   const [scrolled, setScrolled] = useState(false)
@@ -48,6 +48,7 @@ export default function Landing() {
           {[['#how','How it works'],['#reviews','Reviews'],['#faq','FAQ']].map(([h,l])=>(
             <a key={h} href={h} style={{color:'var(--muted)',textDecoration:'none',fontSize:14,fontWeight:500}}>{l}</a>
           ))}
+          <Link to="/blog" style={{color:'var(--muted)',textDecoration:'none',fontSize:14,fontWeight:500}}>Blog</Link>
           <button onClick={go} style={{background:'var(--green)',color:'#000',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Start for $7.99</button>
         </div>
       </nav>

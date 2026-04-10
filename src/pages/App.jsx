@@ -148,9 +148,9 @@ const saveProgress = async (token, prog) => {
   if(!token) return;
   try {
     const { error } = await sb.from("progress").upsert({
-      session_token:  token,
-      completed_tasks: JSON.stringify(prog.completed_tasks || []),
-      days_read:       JSON.stringify(prog.days_read || []),
+      session_token:   token,
+      completed_tasks: prog.completed_tasks || [],
+      days_read:       prog.days_read || [],
       welcomed:        prog.welcomed || false,
       updated_at:      new Date().toISOString(),
     });
@@ -165,13 +165,12 @@ const loadProgress = async (token) => {
     if (data) {
       const normalized = {
         ...data,
-        // Parse JSON strings back to arrays (Supabase may return as string or array)
-        completed_tasks: typeof data.completed_tasks === "string"
-          ? JSON.parse(data.completed_tasks)
-          : (data.completed_tasks || []),
-        days_read: typeof data.days_read === "string"
-          ? JSON.parse(data.days_read)
-          : (data.days_read || []),
+        completed_tasks: Array.isArray(data.completed_tasks)
+          ? data.completed_tasks
+          : (typeof data.completed_tasks === "string" ? JSON.parse(data.completed_tasks) : []),
+        days_read: Array.isArray(data.days_read)
+          ? data.days_read
+          : (typeof data.days_read === "string" ? JSON.parse(data.days_read) : []),
       };
       lsSet("progress", normalized);
       return normalized;
@@ -1451,8 +1450,13 @@ export default function App(){
         ]);
         if(cravingData?.length>0) setCravings(cravingData);
         if(progressData) setProgress({
-          completedTasks:progressData.completed_tasks||[],
-          welcomed:progressData.welcomed||false
+          completedTasks: Array.isArray(progressData.completed_tasks)
+            ? progressData.completed_tasks
+            : [],
+          days_read: Array.isArray(progressData.days_read)
+            ? progressData.days_read
+            : [],
+          welcomed: progressData.welcomed||false
         });
 
         // Check startDate in all possible field names

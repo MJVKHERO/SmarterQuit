@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 // STAP 2: Stel in Stripe de "Success URL" in op:
 //         https://smarterquit.com/app?cs={CHECKOUT_SESSION_ID}
 //         (de {CHECKOUT_SESSION_ID} vult Stripe automatisch in)
-const STRIPE_LINK = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
+const STRIPE_LINK = "https://buy.stripe.com/test_cNi00l9gL9LJfP2cBl2Ry00"
 
 export default function Landing() {
   const [scrolled, setScrolled] = useState(false)

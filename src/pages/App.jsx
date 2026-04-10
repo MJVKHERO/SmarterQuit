@@ -109,7 +109,12 @@ const findTokenByEmail = async (email) => {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────
 const daysSince=(d)=>d?Math.floor((Date.now()-new Date(d).getTime())/(864e5)):0;
-const fmtMoney=(n)=>n<10?"$"+n.toFixed(2):"$"+Math.round(n).toLocaleString();
+const fmtMoney=(n)=>{
+  if(n<0.01) return "$0.00";
+  if(n<10) return "$"+n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+  if(n<100) return "$"+n.toFixed(2);
+  return "$"+Math.round(n).toLocaleString();
+};
 const todayStr=()=>new Date().toDateString();
 
 // ─── THEME ─────────────────────────────────────────────────────────
@@ -891,6 +896,13 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   const [showCraving,setShowCraving]=useState(false);
   const [showReader,setShowReader]=useState(false);
   const [copied,setCopied]=useState(false);
+  const [now,setNow]=useState(Date.now());
+
+  // Tick every second so savings counter updates live
+  useEffect(()=>{
+    const interval=setInterval(()=>setNow(Date.now()),1000);
+    return()=>clearInterval(interval);
+  },[]);
 
   const startDate=intake.startDate||intake.start_date;
   const rawDay=daysSince(startDate)+1;
@@ -898,8 +910,11 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   const dayData=DAYS[currentDay-1];
   const isAwarenessDay=dayData.phase==="Awareness";
 
-  const dailySaved=(parseFloat(intake.weeklySpend||intake.weekly_spend)||0)/7;
-  const totalSaved=dailySaved*(rawDay-1);
+  // Calculate savings based on exact elapsed seconds — updates every second
+  const weeklySpend=parseFloat(intake.weeklySpend||intake.weekly_spend)||0;
+  const perSecond=weeklySpend/(7*24*60*60);
+  const elapsedSeconds=startDate?(now-new Date(startDate).getTime())/1000:0;
+  const totalSaved=Math.max(0,perSecond*elapsedSeconds);
   const completedTasks=progress.completedTasks||[];
   const todayLogs=cravings.filter(c=>new Date(c.timestamp).toDateString()===todayStr());
   const todayCravingsBeat=todayLogs.filter(c=>c.type==="craving").length;

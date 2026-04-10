@@ -102,16 +102,42 @@ const loadIntake = async (token) => {
   return lsGet("intake", null);
 };
 const saveCraving = async (token, craving) => {
+  const withTimestamp = {...craving, timestamp: craving.timestamp || new Date().toISOString()};
   const list = lsGet("cravings", []);
-  list.push(craving);
+  list.push(withTimestamp);
   lsSet("cravings", list);
-  try { await sb.from("cravings").insert({ session_token: token, ...craving }); } catch(e) { console.warn(e); }
+  try {
+    await sb.from("cravings").insert({
+      session_token: token,
+      timestamp:     withTimestamp.timestamp,
+      strength:      withTimestamp.strength,
+      trigger:       withTimestamp.trigger,
+      type:          withTimestamp.type,
+      satisfaction:  withTimestamp.satisfaction || null,
+      day_number:    withTimestamp.day || null,
+      craving:       withTimestamp.craving || null,
+    });
+  } catch(e) { console.warn("saveCraving:", e); }
 };
+
 const loadCravings = async (token) => {
   try {
-    const { data } = await sb.from("cravings").select("*").eq("session_token", token).order("timestamp",{ascending:true});
-    if (data?.length > 0) { lsSet("cravings", data); return data; }
-  } catch(e) { console.warn(e); }
+    const { data } = await sb.from("cravings")
+      .select("*")
+      .eq("session_token", token)
+      .order("created_at", {ascending:true});
+    if (data?.length > 0) {
+      // Normalize fields back to what the app expects
+      const normalized = data.map(c => ({
+        ...c,
+        timestamp: c.timestamp || c.created_at,
+        day:       c.day_number || c.day,
+        type:      c.type || "craving",
+      }));
+      lsSet("cravings", normalized);
+      return normalized;
+    }
+  } catch(e) { console.warn("loadCravings:", e); }
   return lsGet("cravings", []);
 };
 const saveProgress = async (token, prog) => {
@@ -141,6 +167,11 @@ const fmtMoney=(n)=>{
   return "$"+Math.round(n).toLocaleString();
 };
 const todayStr=()=>new Date().toDateString();
+const isToday=(ts)=>{
+  if(!ts) return false;
+  try{ return new Date(ts).toDateString()===new Date().toDateString(); }
+  catch{ return false; }
+};
 
 // ─── THEME ─────────────────────────────────────────────────────────
 const T = {
@@ -941,7 +972,7 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   const elapsedSeconds=startDate?(now-new Date(startDate).getTime())/1000:0;
   const totalSaved=Math.max(0,perSecond*elapsedSeconds);
   const completedTasks=progress.completedTasks||[];
-  const todayLogs=cravings.filter(c=>new Date(c.timestamp).toDateString()===todayStr());
+  const todayLogs=cravings.filter(c=>isToday(c.timestamp||c.created_at));
   const todayCravingsBeat=todayLogs.filter(c=>c.type==="craving").length;
   const todaySmokes=todayLogs.filter(c=>c.type==="smoke").length;
   const taskDone=completedTasks.includes(currentDay);

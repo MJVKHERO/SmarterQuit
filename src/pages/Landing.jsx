@@ -85,14 +85,7 @@ export default function Landing() {
             <span><strong style={{color:'var(--white)'}}>Money-back guarantee</strong> — complete the program, still smoke? Full refund, no questions.</span>
           </div>
           {/* Payment logos */}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:4}}>
-            <span style={{fontSize:11,color:'var(--muted)'}}>Accepted:</span>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png" alt="Visa" style={{height:16,borderRadius:3,background:'#fff',padding:'2px 5px'}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/200px-Mastercard-logo.svg.png" alt="Mastercard" style={{height:20,borderRadius:3}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/200px-Apple_Pay_logo.svg.png" alt="Apple Pay" style={{height:20,borderRadius:3,background:'#000',padding:'2px 6px'}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/200px-Google_Pay_Logo.svg.png" alt="Google Pay" style={{height:18,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
-            <span style={{fontSize:11,color:'var(--muted)',display:'flex',alignItems:'center',gap:3}}>🔒 SSL</span>
-          </div>
+          <PaymentIcons/>
         </div>
       </section>
 
@@ -263,13 +256,7 @@ export default function Landing() {
           </div>
           <button onClick={go} className="btn" style={{fontSize:19,padding:'21px 40px',marginBottom:12}}>Start My Quit Journey →</button>
           <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>🛡️ Money-back guarantee &nbsp;•&nbsp; No download &nbsp;•&nbsp; Works on any phone</div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:10}}>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png" alt="Visa" style={{height:14,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/200px-Mastercard-logo.svg.png" alt="Mastercard" style={{height:18,borderRadius:3}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Apple_Pay_logo.svg/200px-Apple_Pay_logo.svg.png" alt="Apple Pay" style={{height:18,borderRadius:3,background:'#000',padding:'2px 5px'}}/>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/200px-Google_Pay_Logo.svg.png" alt="Google Pay" style={{height:16,borderRadius:3,background:'#fff',padding:'2px 4px'}}/>
-            <span style={{fontSize:11,color:'var(--muted)'}}>🔒 SSL</span>
-          </div>
+          <PaymentIcons/>
         </div>
       </section>
 
@@ -296,6 +283,63 @@ export default function Landing() {
 
       <ScrollReveal/>
     </>
+  )
+}
+
+
+function PaymentIcons(){
+  const box={display:'flex',alignItems:'center',justifyContent:'center',background:'#fff',borderRadius:5,padding:'3px 8px',height:26}
+  const dark={...box,background:'#111'}
+  return(
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:8}}>
+      <span style={{fontSize:11,color:'var(--muted)'}}>Accepted:</span>
+      {/* Visa */}
+      <div style={box}>
+        <svg width="38" height="13" viewBox="0 0 750 471" xmlns="http://www.w3.org/2000/svg">
+          <path d="M278.2 334.5L311.5 138.7H364.5L331.2 334.5H278.2Z" fill="#1A1F71"/>
+          <path d="M524.3 144.1C513.8 140.2 497.4 136 477.1 136C424.9 136 388.5 163.2 388.2 202.4C387.9 231.4 415.3 247.5 436 257.3C457.3 267.3 464.4 273.7 464.3 282.6C464.2 296.3 447.5 302.5 432 302.5C410.5 302.5 399.1 299.4 381.3 291.8L374.3 288.6L366.7 337.1C378.8 342.7 401.1 347.6 424.3 347.8C479.9 347.8 515.6 320.9 516 279C516.2 256.3 502.1 238.9 471.8 224.4C452.5 214.9 440.9 208.6 441 199C441 190.4 450.8 181.2 472.4 181.2C490.5 180.9 503.6 184.8 513.9 188.8L519 191L526.5 144.1H524.3Z" fill="#1A1F71"/>
+          <path d="M612.3 136H571.4C558.9 136 549.7 139.5 544.5 152.3L465.6 334.6H521.2L532.3 304.1H599.5L605.9 334.5H655.1L612.3 136ZM547.8 263.9C551.8 253.4 568.1 210.8 568.1 210.8C567.8 211.3 572.1 200.1 574.6 193.1L578 209.3C578 209.3 588 257.2 590.2 263.9H547.8Z" fill="#1A1F71"/>
+          <path d="M225.4 136L173.7 272.5L168.2 245.9C158.6 214.2 129 179.7 95.9 162.5L143.2 334.3H199.2L281.5 136H225.4Z" fill="#1A1F71"/>
+          <path d="M126.1 136H39.5L38.8 139.9C106.3 156.9 150.4 195.4 168.2 245.9L149.9 153.5C146.8 141 137.7 136.4 126.1 136Z" fill="#F9A533"/>
+        </svg>
+      </div>
+      {/* Mastercard */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:26}}>
+        <svg width="42" height="26" viewBox="0 0 152 95" xmlns="http://www.w3.org/2000/svg">
+          <rect width="152" height="95" rx="8" fill="none"/>
+          <circle cx="58" cy="47.5" r="35" fill="#EB001B"/>
+          <circle cx="94" cy="47.5" r="35" fill="#F79E1B"/>
+          <path d="M76 19.6C84.1 26 89.5 35.6 89.5 47.5C89.5 59.4 84.1 69 76 75.4C67.9 69 62.5 59.4 62.5 47.5C62.5 35.6 67.9 26 76 19.6Z" fill="#FF5F00"/>
+        </svg>
+      </div>
+      {/* Apple Pay */}
+      <div style={dark}>
+        <svg width="46" height="20" viewBox="0 0 165 72" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30.2 13.3C28.2 15.6 25 17.3 21.9 17C21.5 13.4 23.3 9.6 25.1 7.6C27.1 5.2 30.6 3.6 33.3 3.5C33.6 7.3 32.1 11 30.2 13.3ZM33.3 18C28.9 17.7 25.1 20.4 23 20.4C20.8 20.4 17.5 18.1 14.1 18.2C9.5 18.3 5.2 21.1 2.8 25.5C-2 34.5 1.5 47.9 6.2 55.2C8.5 58.8 11.3 62.8 15 62.6C18.6 62.5 20 60.2 24 60.2C28 60.2 29.3 62.6 33.1 62.5C36.9 62.4 39.4 58.9 41.7 55.3C44.3 51.2 45.4 47.3 45.5 47.1C45.4 47 38.2 44.2 38.1 35.5C38 28.2 43.7 24.8 44 24.6C40.9 19.9 35.9 18.3 33.3 18Z" fill="white"/>
+          <path d="M70.9 7.8H61.8V36.7H68.8V27H71.1C77.8 27 82.7 22.3 82.7 17.4C82.7 12.5 78 7.8 70.9 7.8ZM71.3 20.9H68.8V13.9H71.3C74.4 13.9 76.2 15.5 76.2 17.4C76.2 19.3 74.4 20.9 71.3 20.9Z" fill="white"/>
+          <path d="M103.7 21.9C99.2 21.9 95.9 24.3 95.9 28.1C95.9 31.3 98.1 33.3 102.3 34.4L105.1 35.2C107.6 35.9 108.5 36.7 108.5 38.1C108.5 39.8 106.8 40.9 104.2 40.9C101.3 40.9 99.3 39.5 99 37.5H93.2C93.7 42.4 97.6 45 104.1 45C110.7 45 114.4 42.1 114.4 37.8C114.4 34.5 112.3 32.3 107.8 31.1L105.1 30.3C102.7 29.7 101.7 28.8 101.7 27.4C101.7 25.8 103.2 24.7 105.5 24.7C108 24.7 109.8 26 109.9 27.9H115.7C115.3 23.2 111.4 21.9 103.7 21.9ZM130.2 22.3H123.8L117.8 44.5H123.9L125.5 38.3H132.5L134.1 44.5H140.2L134.2 22.3H130.2ZM126.8 33.4L129 25.1L131.2 33.4H126.8Z" fill="white"/>
+        </svg>
+      </div>
+      {/* Google Pay */}
+      <div style={box}>
+        <svg width="46" height="18" viewBox="0 0 205 80" xmlns="http://www.w3.org/2000/svg">
+          <path d="M96.5 39.3C96.5 36.9 96.3 34.6 95.8 32.4H51.3V47.1H76.4C75.4 52.3 72.3 56.9 67.8 59.9V69.8H82.7C91.5 61.7 96.5 51.5 96.5 39.3Z" fill="#4285F4"/>
+          <path d="M51.3 79.5C63.8 79.5 74.4 75.4 82.7 69.8L67.8 59.9C63.5 62.8 57.9 64.5 51.3 64.5C39.2 64.5 28.9 56.3 25.1 45.3H9.7V55.5C18.1 72.2 33.9 79.5 51.3 79.5Z" fill="#34A853"/>
+          <path d="M25.1 45.3C24.1 42.4 23.5 39.3 23.5 36.2C23.5 33.1 24.1 30 25.1 27.1V16.9H9.7C6.4 23.4 4.5 30.6 4.5 36.2C4.5 41.8 6.4 49 9.7 55.5L25.1 45.3Z" fill="#FBBC04"/>
+          <path d="M51.3 7.9C58.5 7.9 65 10.5 70.1 15.4L83.1 2.4C74.4 -4.5 63.8 -0.5 51.3 -0.5C33.9 -0.5 18.1 6.8 9.7 23.5L25.1 33.7C28.9 22.7 39.2 7.9 51.3 7.9Z" fill="#EA4335"/>
+          <path d="M130 9.5V64.5H122V9.5H130ZM163.1 27.8L143.8 72.9C141.1 79.4 137.3 82 131.6 82C129.9 82 128.5 81.8 127.3 81.5V74.3C128.2 74.5 129.3 74.6 130.3 74.6C133.1 74.6 135.1 73.3 136.4 70.2L137.9 66.6L120.1 27.8H128.7L141.4 59.2L153.5 27.8H163.1Z" fill="#3C4043"/>
+        </svg>
+      </div>
+      {/* SSL */}
+      <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--muted)'}}>
+        <svg width="11" height="13" viewBox="0 0 11 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0.8" y="5.5" width="9.4" height="7" rx="1.2" fill="none" stroke="#5a7a96" strokeWidth="1.3"/>
+          <path d="M3 5.5V3.8C3 2.5 4.1 1.5 5.5 1.5C6.9 1.5 8 2.5 8 3.8V5.5" stroke="#5a7a96" strokeWidth="1.3" strokeLinecap="round"/>
+          <circle cx="5.5" cy="9" r="1" fill="#5a7a96"/>
+        </svg>
+        SSL
+      </div>
+    </div>
   )
 }
 

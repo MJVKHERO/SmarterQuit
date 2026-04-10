@@ -106,28 +106,31 @@ const saveCraving = async (token, craving) => {
   const list = lsGet("cravings", []);
   list.push(withTimestamp);
   lsSet("cravings", list);
+  if(!token){ console.warn("saveCraving: no token"); return; }
   try {
-    await sb.from("cravings").insert({
+    const { error } = await sb.from("cravings").insert({
       session_token: token,
       timestamp:     withTimestamp.timestamp,
-      strength:      withTimestamp.strength,
-      trigger:       withTimestamp.trigger,
-      type:          withTimestamp.type,
+      strength:      withTimestamp.strength     || null,
+      trigger:       withTimestamp.trigger      || null,
+      type:          withTimestamp.type         || "craving",
       satisfaction:  withTimestamp.satisfaction || null,
-      day_number:    withTimestamp.day || null,
-      craving:       withTimestamp.craving || null,
+      day_number:    withTimestamp.day          || null,
+      craving:       withTimestamp.craving      || null,
     });
-  } catch(e) { console.warn("saveCraving:", e); }
+    if(error) console.error("saveCraving error:", JSON.stringify(error));
+  } catch(e) { console.error("saveCraving exception:", e); }
 };
 
 const loadCravings = async (token) => {
+  if(!token) return lsGet("cravings", []);
   try {
-    const { data } = await sb.from("cravings")
+    const { data, error } = await sb.from("cravings")
       .select("*")
       .eq("session_token", token)
       .order("created_at", {ascending:true});
+    if(error) console.error("loadCravings error:", JSON.stringify(error));
     if (data?.length > 0) {
-      // Normalize fields back to what the app expects
       const normalized = data.map(c => ({
         ...c,
         timestamp: c.timestamp || c.created_at,
@@ -137,7 +140,7 @@ const loadCravings = async (token) => {
       lsSet("cravings", normalized);
       return normalized;
     }
-  } catch(e) { console.warn("loadCravings:", e); }
+  } catch(e) { console.error("loadCravings exception:", e); }
   return lsGet("cravings", []);
 };
 const saveProgress = async (token, prog) => {

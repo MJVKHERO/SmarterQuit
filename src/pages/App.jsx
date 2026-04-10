@@ -145,13 +145,38 @@ const loadCravings = async (token) => {
 };
 const saveProgress = async (token, prog) => {
   lsSet("progress", prog);
-  try { await sb.from("progress").upsert({ session_token: token, ...prog, updated_at: new Date().toISOString() }); } catch(e) { console.warn(e); }
+  if(!token) return;
+  try {
+    const { error } = await sb.from("progress").upsert({
+      session_token:  token,
+      completed_tasks: JSON.stringify(prog.completed_tasks || []),
+      days_read:       JSON.stringify(prog.days_read || []),
+      welcomed:        prog.welcomed || false,
+      updated_at:      new Date().toISOString(),
+    });
+    if(error) console.error("saveProgress error:", JSON.stringify(error));
+  } catch(e) { console.error("saveProgress exception:", e); }
 };
 const loadProgress = async (token) => {
+  if(!token) return lsGet("progress", null);
   try {
-    const { data } = await sb.from("progress").select("*").eq("session_token", token).maybeSingle();
-    if (data) { lsSet("progress", data); return data; }
-  } catch(e) { console.warn(e); }
+    const { data, error } = await sb.from("progress").select("*").eq("session_token", token).maybeSingle();
+    if(error) console.error("loadProgress error:", JSON.stringify(error));
+    if (data) {
+      const normalized = {
+        ...data,
+        // Parse JSON strings back to arrays (Supabase may return as string or array)
+        completed_tasks: typeof data.completed_tasks === "string"
+          ? JSON.parse(data.completed_tasks)
+          : (data.completed_tasks || []),
+        days_read: typeof data.days_read === "string"
+          ? JSON.parse(data.days_read)
+          : (data.days_read || []),
+      };
+      lsSet("progress", normalized);
+      return normalized;
+    }
+  } catch(e) { console.error("loadProgress exception:", e); }
   return lsGet("progress", null);
 };
 const findTokenByEmail = async (email) => {
@@ -951,7 +976,7 @@ function DayReader({dayData,onClose,onTaskDone,taskDone}){
 }
 
 // ─── MAIN DASHBOARD ────────────────────────────────────────────────
-function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcomed:false},onLogCraving,onTaskDone}){
+function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcomed:false},onLogCraving,onTaskDone,onDayRead}){
   const [showCraving,setShowCraving]=useState(false);
   const [showReader,setShowReader]=useState(false);
   const [copied,setCopied]=useState(false);
@@ -995,7 +1020,13 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   };
 
   if(showReader)return(
-    <DayReader dayData={dayData} onClose={()=>setShowReader(false)} onTaskDone={markTaskDone} taskDone={taskDone}/>
+    <DayReader
+      dayData={dayData}
+      onClose={()=>setShowReader(false)}
+      onTaskDone={markTaskDone}
+      taskDone={taskDone}
+      onRead={()=>onDayRead&&onDayRead(currentDay)}
+    />
   );
 
   return(
@@ -1458,7 +1489,7 @@ export default function App(){
   const handleWelcomeDone=()=>{
     const newProgress={...progress,welcomed:true};
     setProgress(newProgress);
-    saveProgress(token,{completed_tasks:[],welcomed:true});
+    saveProgress(token,{completed_tasks:[],days_read:[],welcomed:true});
     setScreen("dashboard");
   };
 
@@ -1471,9 +1502,27 @@ export default function App(){
   const handleTaskDone=(day)=>{
     if(progress.completedTasks.includes(day))return;
     const newTasks=[...progress.completedTasks,day];
-    const newProgress={...progress,completedTasks:newTasks};
+    const newDaysRead=[...new Set([...(progress.days_read||[]),day])];
+    const newProgress={...progress,completedTasks:newTasks,days_read:newDaysRead};
     setProgress(newProgress);
-    saveProgress(token,{completed_tasks:newTasks,welcomed:true});
+    saveProgress(token,{
+      completed_tasks:newTasks,
+      days_read:newDaysRead,
+      welcomed:true
+    });
+  };
+
+  // Track when a day is opened/read
+  const handleDayRead=(day)=>{
+    const newDaysRead=[...new Set([...(progress.days_read||[]),day])];
+    if(newDaysRead.length===(progress.days_read||[]).length) return; // already tracked
+    const newProgress={...progress,days_read:newDaysRead};
+    setProgress(newProgress);
+    saveProgress(token,{
+      completed_tasks:progress.completedTasks||[],
+      days_read:newDaysRead,
+      welcomed:true
+    });
   };
 
   if(screen==="loading")return(
@@ -1489,5 +1538,5 @@ export default function App(){
   if(screen==="noaccess") return <NoAccessScreen/>;
   if(screen==="intake")   return <IntakeScreen onComplete={handleIntakeComplete}/>;
   if(screen==="welcome")  return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
-  return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone}/>;
+  return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone} onDayRead={handleDayRead}/>;
 }

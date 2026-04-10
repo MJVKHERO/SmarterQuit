@@ -13,12 +13,9 @@ const sendWelcomeEmail = async (email, token) => {
     await fetch("/api/send-welcome", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, token }),
+      body: JSON.stringify({ email, token, type: "welcome" }),
     });
-    console.log("Welcome email sent to", email);
-  } catch(e) {
-    console.warn("Email send failed:", e);
-  }
+  } catch(e) { console.warn("Email send failed:", e); }
 };
 
 // ─── PAYMENT GATE ────────────────────────────────────────────────────
@@ -1195,6 +1192,7 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
   const [showCraving,setShowCraving]=useState(false);
   const [showReader,setShowReader]=useState(false);
   const [showStopEarly,setShowStopEarly]=useState(false);
+  const [showRelapse,setShowRelapse]=useState(false);
   const [activeTab,setActiveTab]=useState("today"); // today | health | pattern
   const [copied,setCopied]=useState(false);
   const [now,setNow]=useState(Date.now());
@@ -1414,6 +1412,15 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
             </div>
           )}
 
+          {/* Relapse button — non-awareness days only */}
+          {!isAwarenessDay&&(
+            <div style={{padding:"8px 20px 0"}}>
+              <button onClick={()=>setShowRelapse(true)} style={{width:"100%",background:"none",border:`1px solid ${T.border}`,borderRadius:10,padding:"12px",cursor:"pointer",fontFamily:"inherit",color:T.muted,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                💛 I smoked today — log it honestly
+              </button>
+            </div>
+          )}
+
           {/* Personal link */}
           <div style={{padding:"16px 20px 0"}}>
             <div style={{background:"linear-gradient(135deg,rgba(0,176,255,0.08),rgba(0,176,255,0.03))",border:"1px solid rgba(0,176,255,0.25)",borderRadius:14,padding:"14px 16px"}}>
@@ -1505,6 +1512,9 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
         {!isAwarenessDay&&<p style={{textAlign:"center",fontSize:12,color:T.muted,marginTop:8}}>Start the 3-minute breathing timer</p>}
       </div>
 
+      {/* Add to home screen prompt */}
+      <AddToHomePrompt/>
+
       {/* Modals */}
       {showCraving&&(
         <CravingModal
@@ -1512,6 +1522,14 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
           onLog={onLogCraving}
           currentDay={currentDay}
           isAwarenessDay={isAwarenessDay}
+        />
+      )}
+
+      {showRelapse&&(
+        <RelapseModal
+          onClose={()=>setShowRelapse(false)}
+          onLog={onLogCraving}
+          currentDay={currentDay}
         />
       )}
 
@@ -1528,6 +1546,7 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
         </BottomSheet>
       )}
     </div>
+  );
 }
 
 // ─── INTAKE FLOW ────────────────────────────────────────────────────
@@ -1647,6 +1666,219 @@ function IntakeScreen({onComplete}){
             </Btn>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RELAPSE MODAL ───────────────────────────────────────────────────
+function RelapseModal({onClose,onLog,currentDay}){
+  const [step,setStep]=useState(0); // 0=acknowledge 1=learn 2=reset
+  const [when,setWhen]=useState("today");
+  const [reason,setReason]=useState("");
+
+  if(step===0)return(
+    <BottomSheet onClose={onClose}>
+      <div style={{textAlign:"center",padding:"4px 0"}}>
+        <div style={{fontSize:44,marginBottom:12}}>💛</div>
+        <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:22,marginBottom:10}}>You smoked. That's okay.</h3>
+        <p style={{color:T.muted,fontSize:15,lineHeight:1.7,marginBottom:20}}>This is not failure. Every person who has quit smoking has a story like this. The only thing that matters now is what you do in the next 10 minutes.</p>
+        <div style={{background:"rgba(255,214,0,0.06)",border:"1px solid rgba(255,214,0,0.2)",borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
+          <p style={{color:T.gold,fontSize:14,margin:0,lineHeight:1.6}}>📊 <strong style={{color:T.white}}>The research is clear:</strong> People who relapse and immediately re-commit quit at the same rate as those who never relapsed. One cigarette after 8 days is not 8 days wasted. It's 8 days of your brain rewiring — still intact.</p>
+        </div>
+        <Btn onClick={()=>setStep(1)} style={{width:"100%",marginBottom:10}}>I understand — what do I do now?</Btn>
+        <Btn variant="ghost" onClick={onClose} style={{width:"100%"}}>Close for now</Btn>
+      </div>
+    </BottomSheet>
+  );
+
+  if(step===1)return(
+    <BottomSheet onClose={onClose}>
+      <div style={{padding:"4px 0"}}>
+        <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:20,marginBottom:16,textAlign:"center"}}>What happened?</h3>
+        <p style={{color:T.muted,fontSize:14,marginBottom:12}}>What triggered it?</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+          {[["😤","Stress / anxiety","stress"],["👥","Social situation","social"],["🍺","Alcohol","alcohol"],["😴","Boredom","boredom"],["💭","Craving too strong","craving"],["❓","I don't know","unknown"]].map(([e,l,v])=>(
+            <div key={v} onClick={()=>setReason(v)} style={{padding:"12px",background:reason===v?T.greenDim:T.bg3,border:`1px solid ${reason===v?T.green:T.border}`,borderRadius:10,cursor:"pointer",textAlign:"center"}}>
+              <div style={{fontSize:22,marginBottom:4}}>{e}</div>
+              <div style={{fontSize:12,fontWeight:600,color:reason===v?T.green:T.white}}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <Btn onClick={()=>setStep(2)} disabled={!reason} style={{width:"100%"}}>Continue →</Btn>
+      </div>
+    </BottomSheet>
+  );
+
+  return(
+    <BottomSheet onClose={onClose}>
+      <div style={{textAlign:"center",padding:"4px 0"}}>
+        <div style={{fontSize:44,marginBottom:12}}>🔄</div>
+        <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:20,marginBottom:10}}>Reset. Not restart.</h3>
+        <p style={{color:T.muted,fontSize:15,lineHeight:1.7,marginBottom:16}}>Your streak counter resets. Your <strong style={{color:T.white}}>knowledge doesn't</strong>. Everything you learned in {currentDay} days stays with you. You now know your triggers better than before.</p>
+        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16,marginBottom:20,textAlign:"left"}}>
+          <div style={{fontSize:12,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>Your trigger today</div>
+          <div style={{fontSize:15,color:T.white,fontWeight:600}}>{{"stress":"😤 Stress / anxiety","social":"👥 Social situation","alcohol":"🍺 Alcohol","boredom":"😴 Boredom","craving":"💭 Craving too strong","unknown":"❓ Unknown"}[reason]}</div>
+          <p style={{color:T.muted,fontSize:13,marginTop:8,lineHeight:1.5}}>This is the trigger you need to prepare for next time. Your program will focus on it.</p>
+        </div>
+        <Btn onClick={()=>{
+          onLog({type:"relapse",trigger:reason,timestamp:new Date().toISOString(),day:currentDay});
+          onClose();
+        }} style={{width:"100%",marginBottom:10}}>Log it and keep going 💪</Btn>
+      </div>
+    </BottomSheet>
+  );
+}
+
+// ─── ADD TO HOME SCREEN PROMPT ────────────────────────────────────────
+function AddToHomePrompt({onDismiss}){
+  const [show,setShow]=useState(false);
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid=/android/i.test(navigator.userAgent);
+  const isMobile=isIOS||isAndroid;
+
+  useEffect(()=>{
+    // Only show on mobile, not in standalone mode, not already shown
+    const dismissed=localStorage.getItem("sq_home_prompt");
+    const isStandalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone;
+    if(isMobile&&!dismissed&&!isStandalone){
+      const timer=setTimeout(()=>setShow(true),3000);
+      return()=>clearTimeout(timer);
+    }
+  },[]);
+
+  const dismiss=()=>{
+    localStorage.setItem("sq_home_prompt","1");
+    setShow(false);
+    onDismiss&&onDismiss();
+  };
+
+  if(!show) return null;
+
+  return(
+    <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:999,background:T.bg3,border:`1px solid ${T.greenBorder}`,borderRadius:16,padding:"16px 18px",boxShadow:"0 8px 40px rgba(0,0,0,0.5)"}}>
+      <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+        <span style={{fontSize:24,flexShrink:0}}>📲</span>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:14,color:T.green,marginBottom:4}}>Add to your home screen</div>
+          {isIOS?(
+            <p style={{color:T.muted,fontSize:13,lineHeight:1.5,margin:"0 0 12px"}}>Tap the <strong style={{color:T.white}}>Share button</strong> at the bottom of Safari, then tap <strong style={{color:T.white}}>"Add to Home Screen"</strong>. Opens like a real app, no browser bar.</p>
+          ):(
+            <p style={{color:T.muted,fontSize:13,lineHeight:1.5,margin:"0 0 12px"}}>Tap the <strong style={{color:T.white}}>menu (⋮)</strong> in Chrome, then tap <strong style={{color:T.white}}>"Add to Home Screen"</strong>. Opens like a real app.</p>
+          )}
+          <button onClick={dismiss} style={{background:"none",border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>Got it, maybe later</button>
+        </div>
+        <button onClick={dismiss} style={{background:"none",border:"none",color:T.muted,fontSize:20,cursor:"pointer",padding:0,lineHeight:1,flexShrink:0}}>×</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── POST DAY 21 MAINTENANCE MODE ────────────────────────────────────
+function MaintenanceMode({intake,cravings,token}){
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const i=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(i);},[]);
+
+  const startDate=intake.startDate||intake.start_date;
+  const weeklySpend=parseFloat(intake.weeklySpend||intake.weekly_spend)||0;
+  const perSecond=weeklySpend/(7*24*60*60);
+  const elapsed=startDate?(now-new Date(startDate).getTime())/1000:0;
+  const totalSaved=Math.max(0,perSecond*elapsed);
+  const daysFree=Math.floor(elapsed/86400);
+
+  const allCravings=cravings||[];
+  const recentCravings=allCravings.filter(c=>{
+    const ts=c.timestamp||c.created_at;
+    return ts&&(now-new Date(ts).getTime())<7*864e5;
+  });
+
+  // Health milestones achieved
+  const elapsedMins=elapsed/60;
+  const achieved=HEALING.filter(h=>elapsedMins>=h.mins);
+  const next=HEALING.find(h=>elapsedMins<h.mins);
+
+  return(
+    <div style={{minHeight:"100vh",background:T.bg,color:T.white,fontFamily:"system-ui,sans-serif"}}>
+      <div style={{maxWidth:480,margin:"0 auto",padding:"0 0 40px"}}>
+
+        {/* Header */}
+        <div style={{padding:"24px 20px 0",textAlign:"center"}}>
+          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:"0.05em",marginBottom:20}}>Smarter<span style={{color:T.green}}>Quit</span></div>
+          <div style={{fontSize:52,marginBottom:12}}>🎉</div>
+          <h1 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:28,marginBottom:8,lineHeight:1.2}}>{daysFree} days free.</h1>
+          <p style={{color:T.muted,fontSize:16,lineHeight:1.6}}>You completed the 21-day program. You are no longer a smoker.</p>
+        </div>
+
+        {/* Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,padding:"24px 20px 0"}}>
+          <div style={{background:T.bg3,border:`1px solid ${T.greenBorder}`,borderRadius:14,padding:16,textAlign:"center"}}>
+            <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:6}}>Total saved</div>
+            <div style={{fontSize:28,fontWeight:800,color:T.green,lineHeight:1}}>{fmtMoney(totalSaved)}</div>
+          </div>
+          <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:16,textAlign:"center"}}>
+            <div style={{fontSize:11,color:T.muted,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:6}}>Days free</div>
+            <div style={{fontSize:28,fontWeight:800,color:T.white,lineHeight:1}}>{daysFree}</div>
+          </div>
+        </div>
+
+        {/* Smoke-free timer */}
+        <SmokefreTimer startDate={startDate} isAwarenessDay={false} quitDate={null}/>
+
+        {/* Next healing milestone */}
+        {next&&(
+          <div style={{padding:"16px 20px 0"}}>
+            <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:16}}>
+              <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:10}}>Next healing milestone</div>
+              <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                <span style={{fontSize:28}}>{next.icon}</span>
+                <div>
+                  <div style={{fontSize:15,fontWeight:700}}>{next.title}</div>
+                  <div style={{fontSize:13,color:T.muted,marginTop:2}}>{next.desc}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Milestones achieved */}
+        <div style={{padding:"16px 20px 0"}}>
+          <div style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Milestones achieved</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {achieved.map((h,i)=>(
+              <div key={i} style={{background:T.greenDim,border:`1px solid ${T.greenBorder}`,borderRadius:8,padding:"6px 12px",fontSize:13,display:"flex",alignItems:"center",gap:6}}>
+                <span>{h.icon}</span><span style={{color:T.green,fontWeight:600}}>{h.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tips for long-term */}
+        <div style={{padding:"16px 20px 0"}}>
+          <div style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Protecting your freedom</div>
+          {[
+            {emoji:"🚨",title:"Watch for HALT",desc:"Hungry, Angry, Lonely, or Tired — these are the 4 states where relapse risk spikes. Know them when you feel them."},
+            {emoji:"💬",title:"Never say 'just one'",desc:"There is no 'just one'. The first one is the only one that matters. Say 'I don't smoke' not 'I'm trying not to smoke'."},
+            {emoji:"🎉",title:"Rewire celebrations",desc:"Alcohol, parties, and big emotions are relapse triggers. Have a plan before you walk in."},
+            {emoji:"📅",title:"The 3-6 month window",desc:"Most long-term relapses happen between 3-6 months after quitting. You know the pattern. You have the tools."},
+          ].map((tip,i)=>(
+            <div key={i} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:"14px 16px",marginBottom:8,display:"flex",gap:12,alignItems:"flex-start"}}>
+              <span style={{fontSize:20,flexShrink:0}}>{tip.emoji}</span>
+              <div>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:3}}>{tip.title}</div>
+                <p style={{color:T.muted,fontSize:13,lineHeight:1.5,margin:0}}>{tip.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent cravings this week */}
+        {recentCravings.length>0&&(
+          <div style={{padding:"16px 20px 0"}}>
+            <div style={{fontSize:12,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:12}}>Cravings this week — {recentCravings.length} beaten</div>
+            <CravingPattern cravings={recentCravings}/>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -1794,6 +2026,20 @@ export default function App(){
     saveCraving(token,craving);
   };
 
+  const sendDripEmail=(day)=>{
+    const email=intake?.email;
+    if(!email||!token) return;
+    if(![3,7,14,21].includes(day)) return;
+    const sentKey=`sq_drip_${day}`;
+    if(localStorage.getItem(sentKey)) return;
+    localStorage.setItem(sentKey,"1");
+    fetch("/api/send-welcome",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email,token,type:"drip",day}),
+    }).catch(e=>console.warn("Drip email failed:",e));
+  };
+
   const handleTaskDone=(day)=>{
     if(progress.completedTasks.includes(day))return;
     const newTasks=[...progress.completedTasks,day];
@@ -1803,6 +2049,7 @@ export default function App(){
       completed_tasks:newTasks,
       welcomed:true,
     });
+    sendDripEmail(day);
   };
 
   const handleDayRead=(day)=>{
@@ -1837,5 +2084,11 @@ export default function App(){
   if(screen==="noaccess") return <NoAccessScreen/>;
   if(screen==="intake")   return <IntakeScreen onComplete={handleIntakeComplete}/>;
   if(screen==="welcome")  return <WelcomeScreen intake={intake} onStart={handleWelcomeDone}/>;
+
+  // After day 21 — show maintenance mode
+  const startDate=intake?.startDate||intake?.start_date;
+  const rawDay=startDate?daysSince(startDate)+1:1;
+  if(rawDay>21) return <MaintenanceMode intake={intake} cravings={cravings} token={token}/>;
+
   return <Dashboard intake={intake} token={token} cravings={cravings} progress={progress} onLogCraving={handleLogCraving} onTaskDone={handleTaskDone} onDayRead={handleDayRead} onStopEarly={handleStopEarly}/>;
 }

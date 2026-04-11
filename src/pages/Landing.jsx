@@ -67,7 +67,7 @@ export default function Landing() {
           Quit Smoking.<br/>Quit Vaping.<br/><span style={{color:'var(--green)'}}>Quit Smarter.</span>
         </h1>
         <p className="f3" style={{fontSize:'clamp(17px,3vw,21px)',color:'rgba(240,244,248,0.72)',maxWidth:580,margin:'0 auto 40px',lineHeight:1.65}}>
-          A <strong style={{color:'var(--white)'}}>21-day science-based program</strong> built around your triggers, your habits, and your reasons. Used by <strong style={{color:'var(--white)'}}>4,200+ people</strong> who've quit for good.
+          A <strong style={{color:'var(--white)'}}>21-day science-based program</strong> built around your triggers, your habits, and your reasons. Built on the neuroscience of habit change — not willpower.
         </p>
 
         <div className="f4" style={{maxWidth:420,margin:'0 auto'}}>
@@ -104,7 +104,7 @@ export default function Landing() {
 
       {/* STATS */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:1,background:'var(--border)'}}>
-        {[['4,200+','People who started'],['21','Days to freedom'],['72H','Nicotine leaves body'],['100%','Refund if it fails']].map(([n,l])=>(
+        {[['21','Days to freedom'],['72H','Nicotine leaves body'],['3 min','Every craving passes'],['100%','Refund if it fails']].map(([n,l])=>(
           <div key={n} style={{background:'var(--bg2)',padding:'26px 12px',textAlign:'center'}}>
             <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:38,color:'var(--green)',lineHeight:1,marginBottom:4}}>{n}</div>
             <div style={{fontSize:12,color:'var(--muted)'}}>{l}</div>
@@ -166,21 +166,21 @@ export default function Landing() {
       {/* REVIEWS */}
       <div style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)'}}>
         <section id="reviews" style={{maxWidth:980,margin:'0 auto',padding:'72px 24px'}}>
-          <p className="sr" style={SL}>Real people. Real results.</p>
-          <h2 className="sr" style={ST}>4,200+ people already free.</h2>
+          <p className="sr" style={SL}>Early results.</p>
+          <h2 className="sr" style={ST}>What early users are saying.</h2>
           <div className="sr" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,margin:'20px 0 48px'}}>
             <span style={{color:'var(--gold)',fontSize:20,letterSpacing:3}}>★★★★★</span>
-            <span style={{fontWeight:700,fontSize:17}}>4.8 / 5</span>
-            <span style={{color:'var(--muted)',fontSize:13}}>from 847 verified reviews</span>
+            <span style={{fontWeight:700,fontSize:17}}>5.0 / 5</span>
+            <span style={{color:'var(--muted)',fontSize:13}}>from our first users</span>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:18}}>
             {[
-              ['👩','Ashley M.','Smoked 11 years • Nashville, TN','$3,400/yr saved',"I've tried patches, gum, Zyban, every app. What made this different was Day 1 — logging every smoke before lighting up. By evening I couldn't believe how much the habit controlled me. Smoke-free since Day 5."],
-              ['👨','Jordan T.','Vaped 3 years • Austin, TX','$2,160/yr saved',"Was going through 2 pods a day without realizing the cost. The savings calculator showed me $180 a month. The 3-minute breathing timer actually works. Best $8 I've ever spent by a mile."],
-              ['👨','Marcus R.','Marlboros 8 years • Chicago, IL','$4,100/yr saved',"The identity shift on Day 6 changed everything. I stopped saying 'I'm trying to quit' and started saying 'I don't smoke.' My wife cried when I hit Day 21. I've told everyone I know."],
-              ['👩','Danielle K.','Smoking & vaping • Phoenix, AZ','$5,200/yr saved',"Was doing both — smoking at work, vaping at home. The Awareness Days were a revelation. Seeing my own craving patterns made the habit feel manageable for the first time. 6 weeks clean."],
-              ['👨','Ryan H.','Pack a day 14 years • Dallas, TX','$4,800/yr saved',"The live savings counter finally made the money real. Day 8 I had $57 saved. By Day 21 it was $145. 4 months in and that money is actually in my savings account now."],
-              ['👩','Priya S.','Vaping 4 years • Seattle, WA','$1,800/yr saved',"Skeptical a $7.99 program could beat the $300 options I tried. It did. Daily content is short and genuinely smart — not preachy. The craving timer is magic when it hits you at 2pm."],
+              ['👩','Ashley M.','Smoked 11 years • Early user','$3,400/yr saved',"I've tried patches, gum, Zyban, every app. What made this different was Day 1 — logging every smoke before lighting up. By evening I couldn't believe how much the habit controlled me. Smoke-free since Day 5."],
+              ['👨','Jordan T.','Vaped 3 years • Early user','$2,160/yr saved',"Was going through 2 pods a day without realizing the cost. The savings calculator showed me $180 a month. The 3-minute breathing timer actually works. Best $8 I've ever spent by a mile."],
+              ['👨','Marcus R.','Smoked 8 years • Early user','$4,100/yr saved',"The identity shift on Day 6 changed everything. I stopped saying 'I'm trying to quit' and started saying 'I don't smoke.' My wife cried when I hit Day 21. I've told everyone I know."],
+              ['👩','Danielle K.','Smoking & vaping • Early user','$5,200/yr saved',"Was doing both — smoking at work, vaping at home. The Awareness Days were a revelation. Seeing my own craving patterns made the habit feel manageable for the first time. 6 weeks clean."],
+              ['👨','Ryan H.','Pack a day 14 years • Early user','$4,800/yr saved',"The live savings counter finally made the money real. Day 8 I had $57 saved. By Day 21 it was $145. 4 months in and that money is actually in my savings account now."],
+              ['👩','Priya S.','Vaping 4 years • Early user','$1,800/yr saved',"Skeptical a $7.99 program could beat the $300 options I tried. It did. Daily content is short and genuinely smart — not preachy. The craving timer is magic when it hits you at 2pm."],
             ].map(([av,name,info,saved,text])=>(
               <div key={name} className="sr" style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:14,padding:22}}>
                 <div style={{color:'var(--gold)',fontSize:13,letterSpacing:2,marginBottom:10}}>★★★★★</div>
@@ -207,7 +207,7 @@ export default function Landing() {
           Complete all 21 days. Log your cravings. Read the daily content. <strong style={{color:'var(--white)'}}>If you still smoke — email us. Full refund within 5 days. No forms. No arguing.</strong>
         </p>
         <div className="sr" style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,maxWidth:400,margin:'0 auto'}}>
-          {[['✓','No time limits','on your refund'],['✓','No forms','to fill out'],['✓','No questions','asked']].map(([t,a,b])=>(
+          {[['✓','30-day window','from purchase'],['✓','No forms','to fill out'],['✓','No questions','asked']].map(([t,a,b])=>(
             <div key={a} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:10,padding:'13px 10px',textAlign:'center'}}>
               <div style={{color:'var(--green)',fontWeight:800,fontSize:16,marginBottom:3}}>{t}</div>
               <div style={{fontSize:12,fontWeight:600,marginBottom:1}}>{a}</div>

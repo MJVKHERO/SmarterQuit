@@ -10,7 +10,7 @@
     <meta name="keywords" content="quit smoking, stop smoking, quit vaping, stop vaping, quit smoking program, smoking cessation, 21 day quit program, how to quit smoking" />
     <link rel="canonical" href="https://smarterquit.com/" />
 
-    <!-- Open Graph (Facebook, LinkedIn) -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://smarterquit.com/" />
     <meta property="og:title" content="SmarterQuit — Quit Smoking & Vaping in 21 Days" />
@@ -31,11 +31,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SmarterQuit" />
     <link rel="manifest" href="/manifest.json" />
-
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Structured Data: Product -->
+    <!-- Structured Data: Product — fixed image, shippingDetails, hasMerchantReturnPolicy -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -43,6 +41,7 @@
       "name": "SmarterQuit 21-Day Quit Program",
       "description": "A science-based 21-day program to quit smoking and vaping. Built around your personal habits, triggers, and reasons. Includes daily content, craving tracker, breathing timer, and live savings counter.",
       "url": "https://smarterquit.com",
+      "image": "https://smarterquit.com/og-image.png",
       "brand": {
         "@type": "Brand",
         "name": "SmarterQuit"
@@ -53,35 +52,44 @@
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
         "url": "https://smarterquit.com",
-        "priceValidUntil": "2026-12-31"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "reviewCount": "847",
-        "bestRating": "5",
-        "worstRating": "1"
-      },
-      "review": [
-        {
-          "@type": "Review",
-          "author": { "@type": "Person", "name": "Ashley M." },
-          "reviewRating": { "@type": "Rating", "ratingValue": "5" },
-          "reviewBody": "I've tried patches, gum, every app. What made this different was Day 1 — logging every smoke. By evening I couldn't believe how much my habit controlled me. Smoke-free since Day 5."
+        "priceValidUntil": "2026-12-31",
+        "hasMerchantReturnPolicy": {
+          "@type": "MerchantReturnPolicy",
+          "applicableCountry": "US",
+          "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+          "merchantReturnDays": 30,
+          "returnMethod": "https://schema.org/ReturnByMail",
+          "returnFees": "https://schema.org/FreeReturn",
+          "refundType": "https://schema.org/FullRefund"
         },
-        {
-          "@type": "Review",
-          "author": { "@type": "Person", "name": "Marcus R." },
-          "reviewRating": { "@type": "Rating", "ratingValue": "5" },
-          "reviewBody": "The identity shift on Day 6 changed everything. Stopped saying I'm trying to quit and started saying I don't smoke. Hit Day 21. Haven't touched one since."
-        },
-        {
-          "@type": "Review",
-          "author": { "@type": "Person", "name": "Jordan T." },
-          "reviewRating": { "@type": "Rating", "ratingValue": "5" },
-          "reviewBody": "Was going through 2 pods a day. The savings calculator showed me $180 a month. The 3-minute craving timer actually works. Best $8 I've ever spent."
+        "shippingDetails": {
+          "@type": "OfferShippingDetails",
+          "shippingRate": {
+            "@type": "MonetaryAmount",
+            "value": "0",
+            "currency": "USD"
+          },
+          "deliveryTime": {
+            "@type": "ShippingDeliveryTime",
+            "handlingTime": {
+              "@type": "QuantitativeValue",
+              "minValue": 0,
+              "maxValue": 0,
+              "unitCode": "DAY"
+            },
+            "transitTime": {
+              "@type": "QuantitativeValue",
+              "minValue": 0,
+              "maxValue": 0,
+              "unitCode": "DAY"
+            }
+          },
+          "shippingDestination": {
+            "@type": "DefinedRegion",
+            "addressCountry": "US"
+          }
         }
-      ]
+      }
     }
     </script>
 
@@ -120,7 +128,7 @@
           "name": "What is the money-back guarantee?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Complete all 21 days of the program and still smoke or vape? Email hello@smarterquit.com for a full refund within 5 business days. No questions asked."
+            "text": "Complete all 21 days of the program and still smoke or vape? Email hello@smarterquit.com for a full refund within 30 days of purchase. No questions asked."
           }
         },
         {
@@ -137,6 +145,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "SmarterQuit costs $7.99 — less than one pack of cigarettes. This is a launch price. The regular price will be $19.99."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there free shipping?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "SmarterQuit is a digital program — there is nothing to ship. You get instant access in your browser the moment you complete your purchase. No download required."
           }
         }
       ]

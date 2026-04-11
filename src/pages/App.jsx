@@ -1345,6 +1345,48 @@ function Dashboard({intake,token,cravings=[],progress={completedTasks:[],welcome
           {/* Smoke-free timer (non-awareness days) */}
           {!isAwarenessDay&&<SmokefreTimer startDate={startDate} isAwarenessDay={isAwarenessDay} quitDate={quitDate}/>}
 
+          {/* Personal insights — shown on day 4 if they have awareness data */}
+          {!isAwarenessDay&&currentDay===4&&cravings.length>0&&(()=>{
+            // Calculate from their real data
+            const hours=Array(24).fill(0);
+            cravings.forEach(c=>{
+              const ts=c.timestamp||c.created_at;
+              if(ts) hours[new Date(ts).getHours()]++;
+            });
+            const peakH=hours.indexOf(Math.max(...hours));
+            const peakStr=peakH<12?`${peakH||12}am`:`${peakH===12?12:peakH-12}pm`;
+            const triggers={};
+            cravings.forEach(c=>{if(c.trigger)triggers[c.trigger]=(triggers[c.trigger]||0)+1;});
+            const topT=Object.entries(triggers).sort((a,b)=>b[1]-a[1])[0];
+            const RESP_MAP={"stress":"😤 Stress","boredom":"😴 Boredom","habit":"🔁 Habit","social":"👥 Social"};
+            const avgGap=cravings.filter(c=>c.craving&&c.satisfaction).reduce((acc,c,_,arr)=>acc+(c.craving-c.satisfaction)/arr.length,0);
+
+            return(
+              <div style={{padding:"16px 20px 0"}}>
+                <div style={{background:"linear-gradient(135deg,rgba(0,230,118,0.08),rgba(0,230,118,0.03))",border:`1px solid ${T.greenBorder}`,borderRadius:14,padding:"16px 18px"}}>
+                  <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:12}}>🎯 Your personal quit profile</div>
+                  <p style={{color:T.muted,fontSize:13,lineHeight:1.5,marginBottom:12}}>Based on your {cravings.length} logged smokes from the awareness days. This is your game plan:</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                    <div style={{background:T.bg2,borderRadius:10,padding:"10px 12px"}}>
+                      <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Watch out for</div>
+                      <div style={{fontSize:15,fontWeight:700,color:T.red}}>⏰ {peakStr}</div>
+                      <div style={{fontSize:11,color:T.muted}}>Your peak craving hour</div>
+                    </div>
+                    {topT&&<div style={{background:T.bg2,borderRadius:10,padding:"10px 12px"}}>
+                      <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Biggest trigger</div>
+                      <div style={{fontSize:15,fontWeight:700,color:T.gold}}>{RESP_MAP[topT[0]]||topT[0]}</div>
+                      <div style={{fontSize:11,color:T.muted}}>{topT[1]} times in 3 days</div>
+                    </div>}
+                  </div>
+                  {avgGap>0&&<div style={{background:T.bg2,borderRadius:10,padding:"10px 12px"}}>
+                    <div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>The gap</div>
+                    <p style={{color:T.white,fontSize:13,lineHeight:1.5,margin:0}}>Your cravings promised <strong style={{color:T.white}}>+{avgGap.toFixed(1)} points</strong> more satisfaction than they delivered. The habit was lying to you. Now you know.</p>
+                  </div>}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* TODAY'S DAY CARD */}
           <div style={{padding:"16px 20px 0"}}>
             <div onClick={()=>setShowReader(true)} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:16,padding:20,cursor:"pointer",borderLeft:`3px solid ${phaseColor}`}}>
@@ -2060,12 +2102,17 @@ export default function App(){
 
   const handleStopEarly=()=>{
     const quitDate=new Date().toISOString();
-    const newIntake={...intake,quitDate};
+    // Jump to day 4 regardless of current awareness day (1, 2 or 3)
+    const currentStart=intake.startDate||intake.start_date;
+    const daysSoFar=currentStart?Math.floor((Date.now()-new Date(currentStart).getTime())/864e5):0;
+    const daysToAdd=Math.max(0,3-daysSoFar); // pad to make it day 4
+    const newStart=new Date(Date.now()-(3)*864e5).toISOString();
+    const newIntake={...intake,quitDate,startDate:newStart,start_date:newStart};
     setIntake(newIntake);
-    // Save quit_date to Supabase intake
     if(token) sb.from("intake").upsert({
       session_token:token,
       quit_date:quitDate,
+      start_date:newStart,
       updated_at:new Date().toISOString(),
     }).then(({error})=>{if(error)console.error("stopEarly save:",error);});
     lsSet("intake",newIntake);

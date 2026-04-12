@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-// ⚠️  STAP 1: Vervang met jouw echte Stripe Payment Link URL
-// STAP 2: Stel in Stripe de "Success URL" in op:
-//         https://smarterquit.com/app?cs={CHECKOUT_SESSION_ID}
-//         (de {CHECKOUT_SESSION_ID} vult Stripe automatisch in)
 const STRIPE_LINK = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
+const PRICE = "19.99"
+const OLD_PRICE = "49.99"
 
 export default function Landing() {
   const [scrolled, setScrolled] = useState(false)
+
+  // Urgency: smoke-free date = today + 21 days
+  const quitDate = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 21)
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+  })()
+
   useEffect(() => {
     window.scrollTo(0, 0)
     const onScroll = () => setScrolled(window.scrollY > 80)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
   const go = () => { window.location.href = STRIPE_LINK }
 
   return (
@@ -39,9 +46,11 @@ export default function Landing() {
         .f4{animation:fadeUp 0.5s ease 0.3s both}
         .sr{opacity:0;transform:translateY(24px);transition:opacity 0.6s ease,transform 0.6s ease}
         .sr.in{opacity:1;transform:translateY(0)}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+        .pulse{animation:pulse 2s ease infinite}
       `}</style>
 
-      {/* STICKY NAV */}
+      {/* NAV */}
       <nav style={{position:'sticky',top:0,zIndex:50,background:scrolled?'rgba(8,12,16,0.96)':'transparent',backdropFilter:scrolled?'blur(12px)':'none',borderBottom:scrolled?'1px solid var(--border)':'1px solid transparent',transition:'all 0.3s',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <a href="/" className="logo">Smarter<span>Quit</span></a>
         <div className="nav-links" style={{display:'flex',gap:24,alignItems:'center'}}>
@@ -49,54 +58,99 @@ export default function Landing() {
             <a key={h} href={h} style={{color:'var(--muted)',textDecoration:'none',fontSize:14,fontWeight:500}}>{l}</a>
           ))}
           <Link to="/blog" style={{color:'var(--muted)',textDecoration:'none',fontSize:14,fontWeight:500}}>Blog</Link>
-          <button onClick={go} style={{background:'var(--green)',color:'#000',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Start for $7.99</button>
+          <button onClick={go} style={{background:'var(--green)',color:'#000',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>Start for ${PRICE}</button>
         </div>
       </nav>
 
-      {/* LAUNCH BANNER */}
+      {/* URGENCY BANNER */}
       <div style={{background:'linear-gradient(90deg,#00260f,#003d18,#00260f)',borderBottom:'1px solid rgba(0,230,118,0.2)',padding:'11px 20px',textAlign:'center',fontSize:14,fontWeight:600,color:'rgba(240,244,248,0.9)'}}>
-        🚀 <strong style={{color:'var(--green)'}}>Launch Price:</strong> Get the full 21-day program for <strong style={{color:'var(--green)'}}>$7.99</strong> — regular price will be $19.99
+        <span className="pulse" style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'var(--green)',marginRight:8,verticalAlign:'middle'}}/>
+        Start today — be smoke-free by <strong style={{color:'var(--green)'}}>{quitDate}</strong>
       </div>
 
       {/* HERO */}
-      <section style={{maxWidth:820,margin:'0 auto',padding:'72px 24px 56px',textAlign:'center'}}>
+      <section style={{maxWidth:860,margin:'0 auto',padding:'72px 24px 56px',textAlign:'center'}}>
         <div className="f1" style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(0,230,118,0.08)',border:'1px solid rgba(0,230,118,0.25)',color:'var(--green)',padding:'7px 18px',borderRadius:100,fontSize:13,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:28}}>
           🚭 For Smokers & Vapers
         </div>
-        <h1 className="f2" style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:'clamp(56px,11vw,104px)',lineHeight:0.92,letterSpacing:'0.02em',marginBottom:24}}>
-          Quit Smoking.<br/>Quit Vaping.<br/><span style={{color:'var(--green)'}}>Quit Smarter.</span>
+
+        <h1 className="f2" style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:'clamp(52px,10vw,100px)',lineHeight:0.92,letterSpacing:'0.02em',marginBottom:24}}>
+          Most quit attempts<br/>fail by day 3.<br/><span style={{color:'var(--green)'}}>Here's why yours won't.</span>
         </h1>
-        <p className="f3" style={{fontSize:'clamp(17px,3vw,21px)',color:'rgba(240,244,248,0.72)',maxWidth:580,margin:'0 auto 40px',lineHeight:1.65}}>
-          A <strong style={{color:'var(--white)'}}>21-day science-based program</strong> built around your triggers, your habits, and your reasons. Built on the neuroscience of habit change — not willpower.
+
+        <p className="f3" style={{fontSize:'clamp(17px,3vw,21px)',color:'rgba(240,244,248,0.72)',maxWidth:600,margin:'0 auto 16px',lineHeight:1.65}}>
+          A <strong style={{color:'var(--white)'}}>21-day science-based program</strong> that dismantles your smoking habit from the inside out — built around your specific triggers, your patterns, and your reasons.
+        </p>
+        <p className="f3" style={{fontSize:'clamp(15px,2.5vw,18px)',color:'rgba(0,230,118,0.8)',maxWidth:500,margin:'0 auto 40px',lineHeight:1.6,fontStyle:'italic'}}>
+          Not willpower. Not patches. Understanding.
         </p>
 
-        <div className="f4" style={{maxWidth:420,margin:'0 auto'}}>
-          {/* Anchor price */}
+        <div className="f4" style={{maxWidth:440,margin:'0 auto'}}>
+          {/* Urgency line */}
+          <div style={{background:'rgba(0,230,118,0.06)',border:'1px solid rgba(0,230,118,0.2)',borderRadius:10,padding:'10px 16px',marginBottom:20,fontSize:14,color:'rgba(240,244,248,0.8)'}}>
+            📅 Start today → smoke-free by <strong style={{color:'var(--green)'}}>{quitDate}</strong>
+          </div>
+
+          {/* Price */}
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,marginBottom:18}}>
-            <span style={{fontSize:18,color:'var(--muted)',textDecoration:'line-through',fontWeight:500}}>$19.99</span>
-            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:48,color:'var(--green)',lineHeight:1}}>$7.99</span>
+            <span style={{fontSize:18,color:'var(--muted)',textDecoration:'line-through',fontWeight:500}}>${OLD_PRICE}</span>
+            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:52,color:'var(--green)',lineHeight:1}}>${PRICE}</span>
             <span style={{background:'rgba(255,214,0,0.14)',border:'1px solid rgba(255,214,0,0.3)',color:'var(--gold)',fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:6,letterSpacing:'0.05em'}}>LAUNCH PRICE</span>
           </div>
+
           <button onClick={go} className="btn" style={{fontSize:20,padding:'22px 40px',marginBottom:14}}>
             Start My Quit Journey →
           </button>
-          {/* Guarantee line near CTA */}
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'center',gap:6,marginBottom:16,fontSize:13,color:'var(--muted)',lineHeight:1.5}}>
-            <span style={{color:'var(--green)',fontSize:15,flexShrink:0,marginTop:1}}>🛡️</span>
-            <span><strong style={{color:'var(--white)'}}>Money-back guarantee</strong> — complete the program, still smoke? Full refund, no questions.</span>
+
+          {/* Guarantee */}
+          <div style={{background:'rgba(0,230,118,0.05)',border:'1px solid rgba(0,230,118,0.15)',borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'flex-start',gap:8,textAlign:'left'}}>
+            <span style={{fontSize:18,flexShrink:0}}>🛡️</span>
+            <span style={{fontSize:13,color:'rgba(240,244,248,0.8)',lineHeight:1.5}}><strong style={{color:'var(--white)'}}>Money-back guarantee</strong> — complete the program and still smoke? Full refund. No forms, no questions.</span>
           </div>
-          {/* Payment logos */}
+
           <PaymentIcons/>
         </div>
       </section>
 
+      {/* THE JOURNEY — before/after story */}
+      <section style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',padding:'64px 24px'}}>
+        <div style={{maxWidth:700,margin:'0 auto'}}>
+          <p style={SL}>The 21-day journey</p>
+          <h2 className="sr" style={{...ST,marginBottom:48}}>What actually happens,<br/>day by day.</h2>
+          <div style={{display:'flex',flexDirection:'column',gap:0}}>
+            {[
+              {day:'Day 1',color:'var(--gold)',icon:'👁️',title:'You still smoke today.',desc:'Your only job is to log every cigarette before you light up. Rate the craving. Name the trigger. Log the satisfaction after. By tonight you\'ll see your habit more clearly than ever before.'},
+              {day:'Day 3',color:'var(--gold)',icon:'🗺️',title:'You understand the trap.',desc:'Three days of data. You can see exactly when your cravings hit, what triggers them, and how much less satisfying each cigarette was compared to what your brain promised. Tonight you smoke your last one — consciously.'},
+              {day:'Day 4',color:'var(--blue)',icon:'⚡',title:'You stop. Cravings hit. You have a timer.',desc:'Every craving peaks and passes in 3 minutes. Not motivation — neuroscience. The breathing timer in the app gets you through every wave. The first day is the loudest. It\'s also the last of the worst.'},
+              {day:'Day 8',color:'var(--blue)',icon:'💪',title:'The physical battle is mostly won.',desc:'Nicotine is long gone. What remains is psychological — habit loops and triggers. But you mapped those on Day 1. You know exactly what\'s coming and when. Your lungs are already measurably better.'},
+              {day:'Day 14',color:'var(--green)',icon:'🪞',title:'You stop saying "I\'m trying to quit."',desc:'You start saying "I don\'t smoke." That shift sounds small. Neurologically, it\'s everything. One is a struggle. The other is an identity. You\'ve earned it.'},
+              {day:'Day 21',color:'var(--green)',icon:'🎉',title:'You\'re free.',desc:'Not as a theory. As a lived reality. 21 days of choosing yourself over a habit that manufactured its own demand. Your savings counter has been running the whole time. Your body has been healing since hour one.'},
+            ].map((step,i)=>(
+              <div key={i} className="sr" style={{display:'flex',gap:20,marginBottom:32,alignItems:'flex-start'}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0}}>
+                  <div style={{width:48,height:48,borderRadius:'50%',background:`${step.color}18`,border:`2px solid ${step.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{step.icon}</div>
+                  {i<5&&<div style={{width:2,height:32,background:'var(--border)',margin:'4px 0'}}/>}
+                </div>
+                <div style={{paddingTop:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                    <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,color:step.color,letterSpacing:'0.08em'}}>{step.day}</span>
+                    <span style={{fontWeight:700,fontSize:16,color:'var(--white)'}}>{step.title}</span>
+                  </div>
+                  <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.65}}>{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* PRICE ANCHORING */}
-      <div style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',padding:'28px 20px'}}>
-        <div style={{maxWidth:720,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'center',gap:24,flexWrap:'wrap'}}>
-          {[['$2,920','What smokers spend yearly','var(--red)',true],['$7.99','SmarterQuit program','var(--green)',false],['36,500%','Your return on investment','var(--gold)',false]].map(([n,l,c,strike])=>(
+      <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',padding:'28px 20px'}}>
+        <div style={{maxWidth:720,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'center',gap:32,flexWrap:'wrap'}}>
+          {[['$2,920','Average smoker spends yearly','var(--red)',true],['$19.99','SmarterQuit program','var(--green)',false],['14,500%','Your return on investment','var(--gold)',false]].map(([n,l,c,strike])=>(
             <div key={l} style={{textAlign:'center'}}>
               <div style={{fontSize:11,color:'var(--muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>{l}</div>
-              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:38,color:c,textDecoration:strike?'line-through':'none',opacity:strike?0.65:1}}>{n}</div>
+              <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:38,color:c,textDecoration:strike?'line-through':'none',opacity:strike?0.6:1}}>{n}</div>
             </div>
           ))}
         </div>
@@ -113,62 +167,46 @@ export default function Landing() {
       </div>
 
       {/* WHAT YOU GET */}
-      <section style={{maxWidth:860,margin:'0 auto',padding:'72px 24px'}}>
+      <section id="how" style={{maxWidth:860,margin:'0 auto',padding:'72px 24px'}}>
         <p className="sr" style={SL}>What's inside</p>
         <h2 className="sr" style={ST}>Everything you need.<br/>Nothing you don't.</h2>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:14,marginTop:48}}>
-          {[['📱','Instant browser access','No app download. Works on any phone. Log in from anywhere, anytime.'],
-            ['👁️','The Awareness Method','Day 1 you still smoke — but you study your habit. By Day 3 you understand it completely.'],
-            ['⏱️','3-Minute Craving Timer','Every craving peaks in 3 minutes. Our breathing timer walks you through it every time.'],
-            ['📊','Personal Trigger Map','Log cravings, see your patterns. Know exactly when and why you smoke.'],
-            ['💰','Live Savings Counter','Watch your money grow in real time from Day 1. Every day tracked.'],
-            ['🧠','21 Days of Real Content','Daily reads backed by neuroscience, CBT, and Allen Carr\'s proven method.'],
-          ].map(([e,t,d])=>(
-            <div key={t} className="sr" style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:14,padding:'20px 18px'}}>
-              <div style={{fontSize:26,marginBottom:10}}>{e}</div>
-              <div style={{fontWeight:700,fontSize:15,marginBottom:7}}>{t}</div>
-              <p style={{fontSize:13,color:'var(--muted)',lineHeight:1.6,margin:0}}>{d}</p>
+          {[
+            ['📱','Works on any device','No app to download. Open it in any browser. Your progress syncs across all your devices automatically.'],
+            ['👁️','3 Awareness Days','You still smoke — but you finally understand exactly what you\'re doing and why. This data guides everything.'],
+            ['⏱️','3-Minute Craving Timer','Every craving peaks and passes in 3 minutes. The guided breathing timer gets you through each one.'],
+            ['📊','Personal Pattern Analysis','After the awareness days, the app shows you your exact peak craving times and biggest triggers.'],
+            ['💰','Live Savings Counter','Counts your savings to the cent from the moment you stop. Real money, in real time.'],
+            ['❤️','Body Healing Timeline','See exactly what\'s happening inside your body — 20 minutes after your last cigarette to 1 year later.'],
+            ['📅','21 Days of Daily Content','Science-backed daily lessons. Short, sharp, and built for the moment you\'re in.'],
+            ['🔗','Personal Access Link','Your program on any device, forever. Never lose your progress.'],
+          ].map(([icon,title,desc])=>(
+            <div key={title} className="sr" style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:14,padding:22}}>
+              <div style={{fontSize:28,marginBottom:12}}>{icon}</div>
+              <h3 style={{fontSize:16,fontWeight:700,marginBottom:8}}>{title}</h3>
+              <p style={{fontSize:14,color:'var(--muted)',lineHeight:1.65}}>{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
-      <div style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)'}}>
-        <section id="how" style={{maxWidth:860,margin:'0 auto',padding:'72px 24px'}}>
-          <p className="sr" style={SL}>The Method</p>
-          <h2 className="sr" style={ST}>Why this works when everything else failed.</h2>
-          <p className="sr" style={{textAlign:'center',color:'var(--muted)',maxWidth:500,margin:'0 auto 52px',fontSize:16,lineHeight:1.65}}>Willpower fails because it fights the wrong thing. SmarterQuit removes the desire by helping you understand it.</p>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14}}>
-            {[['👁️','Days 1–2','Awareness','You still smoke. But you log everything before and after. By Day 2 you\'ve mapped your exact trigger pattern.','#ffd600'],
-              ['⚔️','Days 3–10','Detox','You stop. Every craving gets a 3-minute breathing timer. You watch each one pass. They get weaker every day.','#40c4ff'],
-              ['🔥','Days 11–21','Freedom','You\'re not quitting anymore. You\'re becoming someone who doesn\'t smoke. Identity, not willpower.','#00e676'],
-            ].map(([e,d,ph,desc,c])=>(
-              <div key={ph} className="sr" style={{background:'var(--bg)',border:`1px solid ${c}28`,borderTop:`3px solid ${c}`,borderRadius:14,padding:22}}>
-                <span style={{fontSize:30,display:'block',marginBottom:12}}>{e}</span>
-                <div style={{color:c,fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:6}}>{d} — {ph}</div>
-                <p style={{fontSize:13,color:'rgba(240,244,248,0.72)',lineHeight:1.65,margin:0}}>{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
       {/* SAVINGS CALCULATOR */}
-      <section style={{maxWidth:460,margin:'0 auto',padding:'72px 24px'}}>
-        <p className="sr" style={SL}>Your numbers</p>
-        <h2 className="sr" style={{...ST,marginBottom:36}}>Calculate your savings.</h2>
-        <div className="sr" style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:16,padding:28}}>
-          <CalcWidget/>
+      <section style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',padding:'64px 24px'}}>
+        <div style={{maxWidth:540,margin:'0 auto'}}>
+          <p style={SL}>Your money</p>
+          <h2 className="sr" style={{...ST,marginBottom:36}}>See exactly what you're losing.</h2>
+          <div className="sr" style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:16,padding:28}}>
+            <CalcWidget/>
+          </div>
         </div>
       </section>
 
       {/* REVIEWS */}
-      <div style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)'}}>
+      <div style={{background:'var(--bg)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)'}}>
         <section id="reviews" style={{maxWidth:980,margin:'0 auto',padding:'72px 24px'}}>
           <p className="sr" style={SL}>Early results.</p>
-          <h2 className="sr" style={ST}>What early users are saying.</h2>
-          <div className="sr" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,margin:'20px 0 48px'}}>
+          <h2 className="sr" style={{...ST,marginBottom:12}}>What early users are saying.</h2>
+          <div className="sr" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:12,margin:'0 0 48px'}}>
             <span style={{color:'var(--gold)',fontSize:20,letterSpacing:3}}>★★★★★</span>
             <span style={{fontWeight:700,fontSize:17}}>5.0 / 5</span>
             <span style={{color:'var(--muted)',fontSize:13}}>from our first users</span>
@@ -176,13 +214,13 @@ export default function Landing() {
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:18}}>
             {[
               ['👩','Ashley M.','Smoked 11 years • Early user','$3,400/yr saved',"I've tried patches, gum, Zyban, every app. What made this different was Day 1 — logging every smoke before lighting up. By evening I couldn't believe how much the habit controlled me. Smoke-free since Day 5."],
-              ['👨','Jordan T.','Vaped 3 years • Early user','$2,160/yr saved',"Was going through 2 pods a day without realizing the cost. The savings calculator showed me $180 a month. The 3-minute breathing timer actually works. Best $8 I've ever spent by a mile."],
+              ['👨','Jordan T.','Vaped 3 years • Early user','$2,160/yr saved',"Was going through 2 pods a day without realizing the cost. The savings calculator showed me $180 a month. The 3-minute breathing timer actually works. Best money I've ever spent."],
               ['👨','Marcus R.','Smoked 8 years • Early user','$4,100/yr saved',"The identity shift on Day 6 changed everything. I stopped saying 'I'm trying to quit' and started saying 'I don't smoke.' My wife cried when I hit Day 21. I've told everyone I know."],
               ['👩','Danielle K.','Smoking & vaping • Early user','$5,200/yr saved',"Was doing both — smoking at work, vaping at home. The Awareness Days were a revelation. Seeing my own craving patterns made the habit feel manageable for the first time. 6 weeks clean."],
               ['👨','Ryan H.','Pack a day 14 years • Early user','$4,800/yr saved',"The live savings counter finally made the money real. Day 8 I had $57 saved. By Day 21 it was $145. 4 months in and that money is actually in my savings account now."],
-              ['👩','Priya S.','Vaping 4 years • Early user','$1,800/yr saved',"Skeptical a $7.99 program could beat the $300 options I tried. It did. Daily content is short and genuinely smart — not preachy. The craving timer is magic when it hits you at 2pm."],
+              ['👩','Priya S.','Vaping 4 years • Early user','$1,800/yr saved',"Skeptical a $19.99 program could beat the $300 options I tried. It did. Daily content is short and genuinely smart — not preachy. The craving timer is magic when it hits you at 2pm."],
             ].map(([av,name,info,saved,text])=>(
-              <div key={name} className="sr" style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:14,padding:22}}>
+              <div key={name} className="sr" style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:14,padding:22}}>
                 <div style={{color:'var(--gold)',fontSize:13,letterSpacing:2,marginBottom:10}}>★★★★★</div>
                 <p style={{fontSize:14,lineHeight:1.7,marginBottom:16,color:'rgba(240,244,248,0.85)',fontStyle:'italic'}}>"{text}"</p>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -218,41 +256,45 @@ export default function Landing() {
       </section>
 
       {/* FAQ */}
-      <div style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)'}}>
-        <section id="faq" style={{maxWidth:640,margin:'0 auto',padding:'72px 24px'}}>
-          <p className="sr" style={SL}>FAQ</p>
-          <h2 className="sr" style={{...ST,marginBottom:40}}>Honest answers.</h2>
+      <section id="faq" style={{background:'var(--bg3)',borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',padding:'64px 24px'}}>
+        <div style={{maxWidth:640,margin:'0 auto'}}>
+          <p style={SL}>FAQ</p>
+          <h2 className="sr" style={{...ST,marginBottom:36}}>Questions, answered.</h2>
           {[
-            ['Does this work for vaping too?','Yes — built for both. Select your type during intake and the entire program adapts to you.'],
-            ['Do I need to download an app?','No download ever. Instant browser access on any phone. Add it to your home screen for one-tap access.'],
-            ['What exactly is the money-back guarantee?','Complete all 21 days and still smoke? Email hello@smarterquit.com with your receipt. Full refund within 5 business days. No questions asked.'],
-            ['Why is it $7.99 right now?','We just launched and want 10,000 success stories before we raise the price. The program is worth $19.99. Get it at launch price now.'],
-            ['I\'ve failed before. Why will this work?','Because it doesn\'t fight willpower. Day 1 you still smoke — you just study your habit. Once you understand the trap, the desire changes. Most people call Day 3 a turning point.'],
-            ['How much time per day?','5-10 minutes. A short read each morning and the craving button when needed (10 seconds per craving). Built for real, busy lives.'],
-            ['What if I slip up?','Keep going. A slip is data, not failure. Log it, understand the trigger, continue. The program expects this.'],
-          ].map(([q,a],i)=>(
-            <details key={i} className="sr" style={{borderBottom:'1px solid var(--border)'}}>
-              <summary style={{padding:'20px 0',fontSize:16,fontWeight:600,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',userSelect:'none'}}>
-                {q}<span style={{color:'var(--green)',fontSize:22,flexShrink:0,marginLeft:16}}>+</span>
+            ['Does this work for vaping too?','Yes. SmarterQuit is built for both cigarettes and vaping. Select your type during setup and the program adapts to you.'],
+            ['What if I\'ve tried to quit before and failed?','Good. That means you know what doesn\'t work. Most successful quitters try multiple times before succeeding. The difference here is the awareness approach — you\'re not fighting the habit blind anymore.'],
+            ['Do I need to quit on Day 1?','No. Days 1-3 are awareness days — you still smoke. You just log everything. Day 4 is your first smoke-free day.'],
+            ['What exactly is the money-back guarantee?','Complete all 21 days and still smoke? Email hello@smarterquit.com within 30 days of purchase. Full refund, no questions.'],
+            ['Why is it $19.99?','Because it works. Comparable programs charge $9.99/month. This is a one-time payment for a complete 21-day program.'],
+            ['Will I get support?','Email hello@smarterquit.com anytime. We read every email.'],
+          ].map(([q,a])=>(
+            <details key={q} className="sr" style={{borderBottom:'1px solid var(--border)',paddingBottom:0}}>
+              <summary style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 0',cursor:'pointer',fontWeight:600,fontSize:16,listStyle:'none'}}>
+                {q}
+                <span style={{color:'var(--green)',fontSize:20,flexShrink:0,marginLeft:12}}>+</span>
               </summary>
-              <div style={{paddingBottom:18,fontSize:15,color:'var(--muted)',lineHeight:1.7}}>{a}</div>
+              <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.7,paddingBottom:20}}>{a}</p>
             </details>
           ))}
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* FINAL CTA */}
-      <section style={{background:'linear-gradient(160deg,rgba(0,230,118,0.06),transparent 60%)',borderTop:'1px solid rgba(0,230,118,0.12)',padding:'80px 24px',textAlign:'center'}}>
-        <h2 style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:'clamp(44px,8vw,80px)',letterSpacing:'0.02em',lineHeight:0.95,marginBottom:20}}>
-          Your last first<br/><span style={{color:'var(--green)'}}>day one.</span>
+      <section style={{maxWidth:660,margin:'0 auto',padding:'80px 24px',textAlign:'center'}}>
+        <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase',color:'var(--green)',marginBottom:12}}>Your move</div>
+        <h2 className="sr" style={{fontFamily:"Georgia,serif",fontStyle:'italic',fontSize:'clamp(26px,5vw,44px)',lineHeight:1.15,marginBottom:16}}>
+          You've tried before.<br/>This time you have a system.
         </h2>
-        <p style={{color:'var(--muted)',fontSize:17,maxWidth:460,margin:'0 auto 40px',lineHeight:1.65}}>
-          You've tried before. This time you have a real system, a real method, and nothing to lose.
+        <p style={{color:'var(--muted)',fontSize:17,maxWidth:460,margin:'0 auto 12px',lineHeight:1.65}}>
+          Start today. Be smoke-free by <strong style={{color:'var(--green)'}}>{quitDate}</strong>.
+        </p>
+        <p style={{color:'var(--muted)',fontSize:14,maxWidth:400,margin:'0 auto 36px',lineHeight:1.6}}>
+          $19.99. Less than two packs of cigarettes. A guarantee that means you have nothing to lose.
         </p>
         <div style={{maxWidth:380,margin:'0 auto'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginBottom:14}}>
-            <span style={{fontSize:15,color:'var(--muted)',textDecoration:'line-through'}}>$19.99</span>
-            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,color:'var(--green)',lineHeight:1}}>$7.99</span>
+            <span style={{fontSize:15,color:'var(--muted)',textDecoration:'line-through'}}>${OLD_PRICE}</span>
+            <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:42,color:'var(--green)',lineHeight:1}}>${PRICE}</span>
             <span style={{background:'rgba(255,214,0,0.12)',border:'1px solid rgba(255,214,0,0.3)',color:'var(--gold)',fontSize:11,fontWeight:700,padding:'3px 8px',borderRadius:6}}>LAUNCH PRICE</span>
           </div>
           <button onClick={go} className="btn" style={{fontSize:19,padding:'21px 40px',marginBottom:12}}>Start My Quit Journey →</button>
@@ -265,6 +307,7 @@ export default function Landing() {
       <footer style={{borderTop:'1px solid var(--border)',padding:'32px 24px',textAlign:'center',fontSize:13,color:'var(--muted)'}}>
         <a href="/" className="logo" style={{fontSize:22,display:'block',marginBottom:14}}>Smarter<span>Quit</span></a>
         <div style={{display:'flex',gap:20,justifyContent:'center',flexWrap:'wrap',marginBottom:14}}>
+          <Link to="/blog" style={{color:'var(--muted)',textDecoration:'none'}}>Blog</Link>
           <Link to="/privacy" style={{color:'var(--muted)',textDecoration:'none'}}>Privacy Policy</Link>
           <Link to="/terms" style={{color:'var(--muted)',textDecoration:'none'}}>Terms of Service</Link>
           <Link to="/refund" style={{color:'var(--muted)',textDecoration:'none'}}>Refund Policy</Link>
@@ -276,10 +319,10 @@ export default function Landing() {
       {/* MOBILE STICKY BAR */}
       <div className="sticky-bar" style={{display:'none',position:'fixed',bottom:0,left:0,right:0,zIndex:100,background:'rgba(8,12,16,0.97)',borderTop:'1px solid rgba(0,230,118,0.2)',padding:'10px 16px 22px',backdropFilter:'blur(8px)',flexDirection:'column',gap:4}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:4}}>
-          <span style={{fontSize:12,color:'var(--muted)',textDecoration:'line-through'}}>$19.99</span>
-          <span style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>$7.99 — Launch Price</span>
+          <span style={{fontSize:12,color:'var(--muted)',textDecoration:'line-through'}}>${OLD_PRICE}</span>
+          <span style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>${PRICE} — Launch Price</span>
         </div>
-        <button onClick={go} className="btn" style={{fontSize:17,padding:16}}>Start Now — $7.99 🚭</button>
+        <button onClick={go} className="btn" style={{fontSize:17,padding:16}}>Start Now — ${PRICE} 🚭</button>
       </div>
 
       <ScrollReveal/>
@@ -287,28 +330,22 @@ export default function Landing() {
   )
 }
 
-
 function PaymentIcons(){
   return(
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,flexWrap:'wrap',marginTop:8}}>
       <span style={{fontSize:11,color:'var(--muted)'}}>Accepted:</span>
-      {/* Visa - white bg, original blue color */}
       <div style={{background:'#fff',borderRadius:5,padding:'3px 10px',height:26,display:'flex',alignItems:'center'}}>
         <img src="/visa.svg" alt="Visa" style={{height:16,display:'block'}}/>
       </div>
-      {/* Mastercard - no bg, already colorful */}
       <div style={{height:26,display:'flex',alignItems:'center'}}>
         <img src="/mastercard.svg" alt="Mastercard" style={{height:24,display:'block'}}/>
       </div>
-      {/* Apple Pay - black bg, invert to white */}
       <div style={{background:'#000',borderRadius:5,padding:'3px 10px',height:26,display:'flex',alignItems:'center'}}>
         <img src="/applepay.svg" alt="Apple Pay" style={{height:16,display:'block',filter:'invert(1)'}}/>
       </div>
-      {/* Google Pay - white bg, original colors */}
       <div style={{background:'#fff',borderRadius:5,padding:'3px 8px',height:26,display:'flex',alignItems:'center'}}>
         <img src="/googlepay.svg" alt="Google Pay" style={{height:16,display:'block'}}/>
       </div>
-      {/* SSL lock */}
       <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'var(--muted)'}}>
         <svg width="11" height="13" viewBox="0 0 11 13" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="0.8" y="5.5" width="9.4" height="7" rx="1.2" fill="none" stroke="#5a7a96" strokeWidth="1.3"/>

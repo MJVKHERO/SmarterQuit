@@ -1816,7 +1816,121 @@ function AddToHomePrompt({onDismiss}){
   );
 }
 
-// ─── POST DAY 21 MAINTENANCE MODE ────────────────────────────────────
+// ─── REVIEW FORM ─────────────────────────────────────────────────────
+function ReviewForm({token,intake,daysFree}){
+  const [step,setStep]=useState("idle"); // idle | writing | done | already
+  const [name,setName]=useState("");
+  const [location,setLocation]=useState("");
+  const [text,setText]=useState("");
+  const [rating,setRating]=useState(5);
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    if(localStorage.getItem(`sq_review_sent_${token}`)) setStep("already");
+  },[token]);
+
+  const submit=async()=>{
+    if(!name.trim()||!text.trim()) return;
+    setSaving(true);
+    try{
+      const weeklySpend=parseFloat(intake?.weeklySpend||intake?.weekly_spend)||0;
+      await sb.from("reviews").insert({
+        session_token:token,
+        name:name.trim(),
+        location:location.trim()||null,
+        review_text:text.trim(),
+        rating,
+        days_completed:daysFree,
+        weekly_spend:weeklySpend,
+        quit_type:intake?.quitType||intake?.quit_type||null,
+        years_smoked:intake?.years||null,
+        approved:false,
+      });
+      localStorage.setItem(`sq_review_sent_${token}`,"1");
+      setStep("done");
+    }catch(e){
+      console.error("Review save:",e);
+    }finally{
+      setSaving(false);
+    }
+  };
+
+  if(step==="already")return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:16,textAlign:"center"}}>
+        <div style={{fontSize:24,marginBottom:8}}>✅</div>
+        <p style={{color:T.muted,fontSize:14}}>Your review has been submitted. Thank you!</p>
+      </div>
+    </div>
+  );
+
+  if(step==="done")return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.greenDim,border:`1px solid ${T.greenBorder}`,borderRadius:14,padding:24,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:12}}>🙏</div>
+        <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:20,marginBottom:8}}>Thank you!</h3>
+        <p style={{color:T.muted,fontSize:14,lineHeight:1.6}}>Your review will appear on the site after approval. You're helping the next person find the courage to quit.</p>
+      </div>
+    </div>
+  );
+
+  if(step==="writing")return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.bg3,border:`1px solid ${T.greenBorder}`,borderRadius:14,padding:20}}>
+        <div style={{fontSize:11,color:T.green,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:16}}>⭐ Leave a review</div>
+
+        {/* Rating */}
+        <div style={{display:"flex",gap:8,marginBottom:16,justifyContent:"center"}}>
+          {[1,2,3,4,5].map(n=>(
+            <button key={n} onClick={()=>setRating(n)} style={{background:"none",border:"none",cursor:"pointer",fontSize:28,opacity:n<=rating?1:0.3,transition:"opacity 0.15s"}}>★</button>
+          ))}
+        </div>
+
+        {/* Name */}
+        <input
+          value={name} onChange={e=>setName(e.target.value)}
+          placeholder="Your first name"
+          style={{width:"100%",background:T.bg2,border:`1px solid ${T.border}`,borderRadius:10,color:T.white,padding:"12px 14px",fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:10}}
+        />
+
+        {/* Location (optional) */}
+        <input
+          value={location} onChange={e=>setLocation(e.target.value)}
+          placeholder="Location (optional) — e.g. Austin, TX"
+          style={{width:"100%",background:T.bg2,border:`1px solid ${T.border}`,borderRadius:10,color:T.white,padding:"12px 14px",fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:10}}
+        />
+
+        {/* Review text */}
+        <textarea
+          value={text} onChange={e=>setText(e.target.value)}
+          placeholder="What made the difference for you? What would you tell someone who's considering it?"
+          rows={4}
+          style={{width:"100%",background:T.bg2,border:`1px solid ${T.border}`,borderRadius:10,color:T.white,padding:"12px 14px",fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",resize:"vertical",marginBottom:14}}
+        />
+
+        <div style={{display:"flex",gap:10}}>
+          <Btn variant="ghost" onClick={()=>setStep("idle")} style={{flex:1}}>Cancel</Btn>
+          <Btn onClick={submit} disabled={!name.trim()||!text.trim()||saving} style={{flex:2}}>
+            {saving?"Saving...":"Submit review →"}
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{padding:"16px 20px 0"}}>
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:14,padding:20,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:10}}>⭐</div>
+        <h3 style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:18,marginBottom:8}}>Share your story</h3>
+        <p style={{color:T.muted,fontSize:14,lineHeight:1.6,marginBottom:16}}>You just did something most people never manage. Your story could be what gives someone else the courage to try.</p>
+        <Btn onClick={()=>setStep("writing")} style={{width:"100%"}}>Write a review →</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAINTENANCE MODE ─────────────────────────────────────────────────
 function MaintenanceMode({intake,cravings,token}){
   const [now,setNow]=useState(Date.now());
   useEffect(()=>{const i=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(i);},[]);
@@ -1920,6 +2034,9 @@ function MaintenanceMode({intake,cravings,token}){
             <CravingPattern cravings={recentCravings}/>
           </div>
         )}
+
+        {/* Review submission */}
+        <ReviewForm token={token} intake={intake} daysFree={daysFree}/>
 
       </div>
     </div>

@@ -6,8 +6,8 @@ const sb = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU"
 )
 
-// ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────
-const ADMIN_PASSWORD = "smarterquit2025"
+// Password is verified server-side via /api/admin-auth
+// Set ADMIN_PASSWORD in Vercel → Settings → Environment Variables (no VITE_ prefix)
 
 const T = {
   bg:"#080c10", bg2:"#0d1117", bg3:"#111820", bg4:"#161e28",
@@ -403,12 +403,22 @@ export default function Admin() {
     if (authed && tab === 'overview') loadOverview()
   }, [authed, tab])
 
-  const login = () => {
-    if (pw === ADMIN_PASSWORD) {
-      sessionStorage.setItem('sq_admin', '1')
-      setAuthed(true)
-      setPwError(false)
-    } else {
+  const login = async () => {
+    try {
+      const res = await fetch('/api/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        sessionStorage.setItem('sq_admin', '1')
+        setAuthed(true)
+        setPwError(false)
+      } else {
+        setPwError(true)
+      }
+    } catch(e) {
       setPwError(true)
     }
   }

@@ -410,16 +410,20 @@ export default function Admin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw }),
       })
+      if (res.status === 429) {
+        setPwError('too_many')
+        return
+      }
       const data = await res.json()
       if (data.ok) {
         sessionStorage.setItem('sq_admin', '1')
         setAuthed(true)
         setPwError(false)
       } else {
-        setPwError(true)
+        setPwError('wrong')
       }
     } catch(e) {
-      setPwError(true)
+      setPwError('wrong')
     }
   }
 
@@ -456,7 +460,8 @@ export default function Admin() {
             placeholder="Admin password"
             style={{width:'100%',background:T.bg2,border:`1px solid ${pwError?T.red:T.border}`,borderRadius:10,color:T.white,padding:'14px 16px',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:12}}
           />
-          {pwError && <p style={{color:T.red,fontSize:13,marginBottom:12}}>Wrong password</p>}
+          {pwError === 'wrong' && <p style={{color:T.red,fontSize:13,marginBottom:12}}>Wrong password</p>}
+          {pwError === 'too_many' && <p style={{color:T.red,fontSize:13,marginBottom:12}}>Too many attempts. Try again in 15 minutes.</p>}
           <button onClick={login} style={{width:'100%',background:T.green,color:'#000',border:'none',borderRadius:10,padding:'14px',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
             Enter →
           </button>

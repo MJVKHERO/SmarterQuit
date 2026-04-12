@@ -114,7 +114,7 @@ function ReviewsTab() {
               "{r.review_text}"
             </p>
 
-            <div style={{display:'flex',gap:8'}}>
+            <div style={{display:'flex',gap:8}}>
               {!r.approved && (
                 <button onClick={()=>approve(r.id)} style={{
                   background:T.greenDim,border:`1px solid ${T.greenBorder}`,color:T.green,
@@ -376,7 +376,7 @@ function BlogsTab() {
             </div>
           </div>
           <Badge color={post.published?T.green:T.red}>{post.published?'Live':'Draft'}</Badge>
-          <div style={{display:'flex',gap:8'}}>
+          <div style={{display:'flex',gap:8}}>
             <button onClick={()=>openEdit(post)} style={{background:T.bg2,border:`1px solid ${T.border}`,color:T.muted,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Edit</button>
             <button onClick={()=>togglePublish(post)} style={{background:T.bg2,border:`1px solid ${T.border}`,color:post.published?T.red:T.green,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>{post.published?'Unpublish':'Publish'}</button>
             <button onClick={()=>deletePost(post)} style={{background:'rgba(255,82,82,0.08)',border:'1px solid rgba(255,82,82,0.2)',color:T.red,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Delete</button>

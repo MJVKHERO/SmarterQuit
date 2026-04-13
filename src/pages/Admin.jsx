@@ -133,6 +133,279 @@ function ReviewsTab() {
   )
 }
 
+// ─── ANALYTICS TAB ───────────────────────────────────────────────────
+function AnalyticsTab() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [range, setRange] = useState(7) // days
+
+  useEffect(() => { loadAnalytics() }, [range])
+
+  // Auto-refresh every 30 seconds for "live" feel
+  useEffect(() => {
+    const i = setInterval(loadAnalytics, 30000)
+    return () => clearInterval(i)
+  }, [range])
+
+  const loadAnalytics = async () => {
+    try {
+      const since = new Date(Date.now() - range * 864e5).toISOString()
+
+      // Total views in range
+      const { count: totalViews } = await sb.from('page_views')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', since)
+
+      // Unique sessions in range
+      const { data: sessions } = await sb.from('page_views')
+        .select('session_id')
+        .gte('created_at', since)
+      const uniqueSessions = new Set(sessions?.map(s => s.session_id)).size
+
+      // Views per page
+      const { data: allViews } = await sb.from('page_views')
+        .select('path, created_at, session_id, referrer')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+
+      const pageCounts = {}
+      allViews?.forEach(v => {
+        pageCounts[v.path] = (pageCounts[v.path] || 0) + 1
+      })
+      const topPages = Object.entries(pageCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+
+      // Views per hour (last 24h)
+      const last24h = allViews?.filter(v =>
+        new Date(v.created_at) > new Date(Date.now() - 864e5)
+      )
+      const hourBuckets = Array(24).fill(0)
+      last24h?.forEach(v => {
+        hourBuckets[new Date(v.created_at).getHours()]++
+      })
+
+      // Views per day in range
+      const dayBuckets = {}
+      allViews?.forEach(v => {
+        const day = v.created_at?.split('T')[0]
+        if (day) dayBuckets[day] = (dayBuckets[day] || 0) + 1
+      })
+      const dayData = Object.entries(dayBuckets).sort((a,b) => a[0].localeCompare(b[0]))
+
+      // Top referrers
+      const refCounts = {}
+      allViews?.forEach(v => {
+        if (v.referrer) {
+          try {
+            const host = new URL(v.referrer).hostname.replace('www.','')
+            refCounts[host] = (refCounts[host] || 0) + 1
+          } catch(e) {}
+        }
+      })
+      const topRefs = Object.entries(refCounts).sort((a,b) => b[1]-a[1]).slice(0,5)
+
+      // Live visitors (last 5 minutes)
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60000).toISOString()
+      const { count: liveCount } = await sb.from('page_views')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', fiveMinsAgo)
+
+      // Landing page conversion (views vs /app views)
+      const landingViews = pageCounts['/'] || 0
+      const appViews = pageCounts['/app'] || 0
+      const convRate = landingViews > 0 ? ((appViews / landingViews) * 100).toFixed(1) : 0
+
+      // Recent visits
+      const recent = allViews?.slice(0, 20) || []
+
+      setData({ totalViews, uniqueSessions, topPages, hourBuckets, dayData, topRefs, liveCount, landingViews, appViews, convRate, recent })
+    } catch(e) {
+      console.error('Analytics error:', e)
+    }
+    setLoading(false)
+  }
+
+  const fmtPath = (p) => p === '/' ? '🏠 Home' : p === '/app' ? '📱 App' : p.startsWith('/blog/') ? `📝 ${p.replace('/blog/','')}` : p
+
+  const fmtHour = (h) => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`
+
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+
+  const fmtTime = (d) => new Date(d).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })
+
+  if (loading) return <p style={{color:T.muted,padding:'20px 0'}}>Loading analytics...</p>
+  if (!data) return <p style={{color:T.red}}>Failed to load analytics.</p>
+
+  const maxHour = Math.max(...data.hourBuckets, 1)
+  const maxDay = Math.max(...data.dayData.map(d => d[1]), 1)
+
+  return (
+    <div>
+      {/* Range selector + live indicator */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#00e676',boxShadow:'0 0 8px #00e676'}}/>
+          <span style={{fontSize:13,color:T.green,fontWeight:700}}>
+            {data.liveCount} visitor{data.liveCount !== 1 ? 's' : ''} in last 5 min
+          </span>
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          {[[1,'24h'],[7,'7d'],[30,'30d']].map(([v,l]) => (
+            <button key={v} onClick={() => setRange(v)} style={{
+              background: range===v ? T.green : T.bg3,
+              color: range===v ? '#000' : T.muted,
+              border: `1px solid ${range===v ? T.green : T.border}`,
+              borderRadius: 7, padding: '6px 14px', fontSize: 12,
+              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Top stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:24}}>
+        {[
+          {label:'Total views', value:data.totalViews||0, color:T.white},
+          {label:'Unique visitors', value:data.uniqueSessions||0, color:T.blue},
+          {label:'Landing views', value:data.landingViews||0, color:T.muted},
+          {label:'App opens', value:data.appViews||0, color:T.green},
+          {label:'Est. conv. rate', value:`${data.convRate}%`, color:data.convRate>2?T.green:T.gold},
+        ].map(({label,value,color})=>(
+          <div key={label} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px',textAlign:'center'}}>
+            <div style={{fontSize:26,fontWeight:800,color,lineHeight:1,marginBottom:4}}>{value}</div>
+            <div style={{fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Hourly chart — last 24h */}
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:20,marginBottom:16}}>
+        <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:14}}>
+          Visitors by hour (last 24h)
+        </div>
+        <div style={{display:'flex',alignItems:'flex-end',gap:3,height:60}}>
+          {data.hourBuckets.map((v,i) => (
+            <div key={i} title={`${fmtHour(i)}: ${v} views`} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+              <div style={{
+                width:'100%',
+                height: v > 0 ? `${Math.max(4,(v/maxHour)*56)}px` : '3px',
+                background: v > 0 ? (v===Math.max(...data.hourBuckets)?T.green:'rgba(0,230,118,0.45)') : 'rgba(255,255,255,0.05)',
+                borderRadius:2,
+                transition:'height 0.3s',
+              }}/>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:6}}>
+          {['12am','3am','6am','9am','12pm','3pm','6pm','9pm'].map(l=>(
+            <span key={l}>{l}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Daily chart */}
+      {data.dayData.length > 1 && (
+        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:20,marginBottom:16}}>
+          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:14}}>
+            Daily views
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:4,height:60}}>
+            {data.dayData.map(([day,v]) => (
+              <div key={day} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                <div style={{
+                  width:'100%',
+                  height:`${Math.max(4,(v/maxDay)*56)}px`,
+                  background:T.blue,borderRadius:2,
+                }} title={`${fmtDate(day)}: ${v}`}/>
+                <div style={{fontSize:8,color:T.muted,transform:'rotate(-45deg)',transformOrigin:'top left',whiteSpace:'nowrap',marginTop:2}}>
+                  {fmtDate(day)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        {/* Top pages */}
+        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
+          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Top pages</div>
+          {data.topPages.length === 0 ? (
+            <p style={{color:T.muted,fontSize:13}}>No data yet</p>
+          ) : data.topPages.map(([path,count]) => {
+            const maxCount = data.topPages[0][1]
+            return (
+              <div key={path} style={{marginBottom:8}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:3}}>
+                  <span style={{color:T.white,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'75%'}}>{fmtPath(path)}</span>
+                  <span style={{color:T.green,fontWeight:700,flexShrink:0}}>{count}</span>
+                </div>
+                <div style={{height:4,background:T.bg2,borderRadius:2}}>
+                  <div style={{height:'100%',width:`${(count/maxCount)*100}%`,background:T.green,borderRadius:2}}/>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Top referrers */}
+        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
+          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Top sources</div>
+          {data.topRefs.length === 0 ? (
+            <p style={{color:T.muted,fontSize:13}}>No referrer data yet</p>
+          ) : data.topRefs.map(([ref,count]) => (
+            <div key={ref} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,fontSize:13}}>
+              <span style={{color:T.white}}>{ref}</span>
+              <span style={{color:T.blue,fontWeight:700}}>{count}</span>
+            </div>
+          ))}
+          {data.topRefs.length > 0 && (
+            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:8,marginTop:4}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
+                <span style={{color:T.muted}}>Direct / unknown</span>
+                <span style={{color:T.muted}}>{(data.totalViews||0) - data.topRefs.reduce((a,[,c])=>a+c,0)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent visits */}
+      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
+        <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>
+          Recent visits (live — refreshes every 30s)
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead>
+              <tr>
+                {['Time','Page','Source'].map(h=>(
+                  <th key={h} style={{textAlign:'left',padding:'6px 10px',color:T.muted,fontWeight:600,borderBottom:`1px solid ${T.border}`}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.recent.map((v,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${T.border}`}}>
+                  <td style={{padding:'8px 10px',color:T.muted,whiteSpace:'nowrap'}}>{fmtTime(v.created_at)}</td>
+                  <td style={{padding:'8px 10px',color:T.white}}>{fmtPath(v.path)}</td>
+                  <td style={{padding:'8px 10px',color:T.muted,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {v.referrer ? (() => { try { return new URL(v.referrer).hostname.replace('www.','') } catch(e) { return 'direct' } })() : 'direct'}
+                  </td>
+                </tr>
+              ))}
+              {data.recent.length === 0 && (
+                <tr><td colSpan={3} style={{padding:'16px 10px',color:T.muted,textAlign:'center'}}>No visits yet</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── USERS TAB ────────────────────────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState([])
@@ -471,10 +744,11 @@ export default function Admin() {
   )
 
   const TABS = [
-    {id:'overview', label:'📊 Overview'},
-    {id:'users',    label:'👥 Users'},
-    {id:'reviews',  label:'⭐ Reviews'},
-    {id:'blog',     label:'📝 Blog'},
+    {id:'overview',  label:'📊 Overview'},
+    {id:'analytics', label:'📈 Analytics'},
+    {id:'users',     label:'👥 Users'},
+    {id:'reviews',   label:'⭐ Reviews'},
+    {id:'blog',      label:'📝 Blog'},
   ]
 
   return (
@@ -553,9 +827,10 @@ export default function Admin() {
           </div>
         )}
 
-        {tab==='users'   && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Users</h1><UsersTab/></div>}
-        {tab==='reviews' && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Reviews</h1><ReviewsTab/></div>}
-        {tab==='blog'    && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Blog</h1><BlogsTab/></div>}
+        {tab==='users'     && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Users</h1><UsersTab/></div>}
+        {tab==='analytics' && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Analytics</h1><AnalyticsTab/></div>}
+        {tab==='reviews'   && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Reviews</h1><ReviewsTab/></div>}
+        {tab==='blog'      && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Blog</h1><BlogsTab/></div>}
 
       </div>
     </div>

@@ -312,35 +312,7 @@ export default function Landing() {
 
         </div>
       </section>
-        <div style={{maxWidth:700,margin:'0 auto'}}>
-          <p style={SL}>The 21-day journey</p>
-          <h2 className="sr" style={{...ST,marginBottom:48}}>What actually happens,<br/>day by day.</h2>
-          <div style={{display:'flex',flexDirection:'column',gap:0}}>
-            {[
-              {day:'Day 1',color:'var(--gold)',icon:'👁️',title:'You still smoke today.',desc:'Your only job is to log every cigarette before you light up. Rate the craving. Name the trigger. Log the satisfaction after. By tonight you\'ll see your habit more clearly than ever before.'},
-              {day:'Day 3',color:'var(--gold)',icon:'🗺️',title:'You understand the trap.',desc:'Three days of data. You can see exactly when your cravings hit, what triggers them, and how much less satisfying each cigarette was compared to what your brain promised. Tonight you smoke your last one — consciously.'},
-              {day:'Day 4',color:'var(--blue)',icon:'⚡',title:'You stop. Cravings hit. You have a timer.',desc:'Every craving peaks and passes in 3 minutes. Not motivation — neuroscience. The breathing timer in the app gets you through every wave. The first day is the loudest. It\'s also the last of the worst.'},
-              {day:'Day 8',color:'var(--blue)',icon:'💪',title:'The physical battle is mostly won.',desc:'Nicotine is long gone. What remains is psychological — habit loops and triggers. But you mapped those on Day 1. You know exactly what\'s coming and when. Your lungs are already measurably better.'},
-              {day:'Day 14',color:'var(--green)',icon:'🪞',title:'You stop saying "I\'m trying to quit."',desc:'You start saying "I don\'t smoke." That shift sounds small. Neurologically, it\'s everything. One is a struggle. The other is an identity. You\'ve earned it.'},
-              {day:'Day 21',color:'var(--green)',icon:'🎉',title:'You\'re free.',desc:'Not as a theory. As a lived reality. 21 days of choosing yourself over a habit that manufactured its own demand. Your savings counter has been running the whole time. Your body has been healing since hour one.'},
-            ].map((step,i)=>(
-              <div key={i} className="sr" style={{display:'flex',gap:20,marginBottom:32,alignItems:'flex-start'}}>
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0}}>
-                  <div style={{width:48,height:48,borderRadius:'50%',background:`${step.color}18`,border:`2px solid ${step.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{step.icon}</div>
-                  {i<5&&<div style={{width:2,height:32,background:'var(--border)',margin:'4px 0'}}/>}
-                </div>
-                <div style={{paddingTop:10}}>
-                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-                    <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,color:step.color,letterSpacing:'0.08em'}}>{step.day}</span>
-                    <span style={{fontWeight:700,fontSize:16,color:'var(--white)'}}>{step.title}</span>
-                  </div>
-                  <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.65}}>{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+
 
       {/* PRICE ANCHORING */}
       <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',padding:'28px 20px'}}>

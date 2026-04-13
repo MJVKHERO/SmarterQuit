@@ -23,6 +23,11 @@ export default function BlogPost() {
   useEffect(() => {
     loadPost()
     window.scrollTo(0, 0)
+    try {
+      let sid = sessionStorage.getItem('sq_sid')
+      if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
+      sb.from('page_views').insert({ path: `/blog/${slug}`, referrer: document.referrer||null, user_agent: navigator.userAgent, session_id: sid }).then(()=>{})
+    } catch(e) {}
   }, [slug])
 
   const loadPost = async () => {

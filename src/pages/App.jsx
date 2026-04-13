@@ -2672,13 +2672,10 @@ export default function App(){
       // Pinterest conversion event — fires once for new paying customers
       if(access.isNew && typeof window.pintrk === 'function'){
         window.pintrk('track', 'checkout', {
+          event_id: access.token,
           value: 19.99,
+          order_quantity: 1,
           currency: 'USD',
-          line_items: [{
-            product_name: 'SmarterQuit 21-Day Quit Program',
-            product_price: 19.99,
-            product_quantity: 1,
-          }]
         });
       }
 

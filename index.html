@@ -44,10 +44,6 @@
     pintrk('load', '2613350070963');
     pintrk('page');
     </script>
-    <noscript>
-      <img height="1" width="1" style="display:none;" alt=""
-        src="https://ct.pinterest.com/v3/?event=init&tid=2613350070963&noscript=1" />
-    </noscript>
     <!-- end Pinterest Tag -->
 
     <!-- Structured Data: Product — fixed image, shippingDetails, hasMerchantReturnPolicy -->
@@ -183,6 +179,8 @@
     </style>
   </head>
   <body>
+    <!-- Pinterest noscript fallback -->
+    <noscript><img height="1" width="1" style="display:none;" alt="" src="https://ct.pinterest.com/v3/?event=init&tid=2613350070963&noscript=1"/></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

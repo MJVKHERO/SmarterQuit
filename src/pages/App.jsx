@@ -66,13 +66,15 @@ const saveIntake = async (token, data) => {
   try {
     await sb.from("intake").upsert({
       session_token:  token,
-      quit_type:      normalized.quitType   || normalized.quit_type,
+      quit_type:      normalized.quitType    || normalized.quit_type,
+      vape_type:      normalized.vapeType    || normalized.vape_type    || null,
       amount:         normalized.amount,
+      amount_unit:    normalized.amountUnit  || normalized.amount_unit  || "cigarettes",
       years:          normalized.years,
       weekly_spend:   normalized.weeklySpend || normalized.weekly_spend,
       reason:         normalized.reason,
       email:          normalized.email,
-      start_date:     normalized.startDate  || normalized.start_date,
+      start_date:     normalized.startDate   || normalized.start_date,
       yearly:         normalized.yearly,
       daily_email:    normalized.dailyEmail !== undefined ? normalized.dailyEmail : true,
       updated_at:     new Date().toISOString(),
@@ -84,19 +86,20 @@ const loadIntake = async (token) => {
   try {
     const { data } = await sb.from("intake").select("*").eq("session_token", token).maybeSingle();
     if (data) {
-      // Normalize Supabase snake_case back to camelCase for the app
       const normalized = {
         ...data,
         quitType:    data.quit_type    || data.quitType,
+        vapeType:    data.vape_type    || data.vapeType    || "",
+        amountUnit:  data.amount_unit  || data.amountUnit  || "cigarettes",
         weeklySpend: data.weekly_spend || data.weeklySpend,
         startDate:   data.start_date   || data.startDate,
-        quitDate:    data.quit_date    || data.quitDate || null,
+        quitDate:    data.quit_date    || data.quitDate    || null,
+        dailyEmail:  data.daily_email  !== undefined ? data.daily_email : true,
       };
       lsSet("intake", normalized);
       return normalized;
     }
   } catch(e) { console.warn("Supabase loadIntake:", e); }
-  // Fallback to localStorage (same device)
   return lsGet("intake", null);
 };
 const saveCraving = async (token, craving) => {

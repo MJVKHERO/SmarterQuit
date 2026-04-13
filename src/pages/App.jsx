@@ -2669,6 +2669,13 @@ export default function App(){
 
       setToken(access.token);
 
+      // Track page view
+      try {
+        let sid = sessionStorage.getItem('sq_sid')
+        if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
+        sb.from('page_views').insert({ path: '/app', referrer: document.referrer||null, user_agent: navigator.userAgent, session_id: sid, token: access.token }).then(()=>{})
+      } catch(e) {}
+
       // Pinterest conversion event — fires once for new paying customers
       if(access.isNew && typeof window.pintrk === 'function'){
         window.pintrk('track', 'checkout', {

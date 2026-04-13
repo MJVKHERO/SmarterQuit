@@ -20,12 +20,21 @@ const CATEGORIES = {
   'what-happens-body-stop-smoking':     { tag: 'Health',    color: '#ff5252' },
 }
 
+const trackView = (path) => {
+  try {
+    let sid = sessionStorage.getItem('sq_sid')
+    if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
+    sb.from('page_views').insert({ path, referrer: document.referrer||null, user_agent: navigator.userAgent, session_id: sid }).then(()=>{})
+  } catch(e) {}
+}
+
 export default function Blog() {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     document.title = 'Blog — SmarterQuit | Quit Smoking & Vaping'
+    trackView('/blog')
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', 'Science-based guides on quitting smoking and vaping. How to quit, what happens to your body, why willpower fails, and more.')
     loadPosts()
@@ -58,7 +67,7 @@ export default function Blog() {
           Smarter<span style={{ color: S.green }}>Quit</span>
         </Link>
         <Link to="/" style={{ background: S.green, color: '#000', textDecoration: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 14, fontWeight: 700 }}>
-          Start for $7.99
+          Start for $19.99
         </Link>
       </nav>
 
@@ -163,7 +172,7 @@ export default function Blog() {
             The 21-day science-based program. Built around your habits, your triggers, your reasons.
           </p>
           <Link to="/" style={{ display: 'inline-block', background: S.green, color: '#000', textDecoration: 'none', borderRadius: 10, padding: '14px 32px', fontSize: 16, fontWeight: 800 }}>
-            Start for $7.99 →
+            Start for $19.99 →
           </Link>
           <p style={{ color: S.muted, fontSize: 13, marginTop: 10 }}>Money-back guarantee</p>
         </div>

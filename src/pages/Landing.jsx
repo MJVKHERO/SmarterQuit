@@ -1,5 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { createClient } from '@supabase/supabase-js'
+
+const sb = createClient(
+  "https://srrxlvhggbhkoxiawcsg.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU"
+)
+
+const trackView = (path) => {
+  try {
+    let sid = sessionStorage.getItem('sq_sid')
+    if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
+    sb.from('page_views').insert({
+      path,
+      referrer: document.referrer || null,
+      user_agent: navigator.userAgent,
+      session_id: sid,
+    }).then(() => {})
+  } catch(e) {}
+}
 
 const STRIPE_LINK = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
 const PRICE = "19.99"
@@ -17,6 +36,7 @@ export default function Landing() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+    trackView('/')
     const onScroll = () => setScrolled(window.scrollY > 80)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)

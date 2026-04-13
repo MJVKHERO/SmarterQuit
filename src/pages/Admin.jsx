@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
@@ -6,833 +6,681 @@ const sb = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU"
 )
 
-// Password is verified server-side via /api/admin-auth
-// Set ADMIN_PASSWORD in Vercel → Settings → Environment Variables (no VITE_ prefix)
-
-const T = {
-  bg:"#080c10", bg2:"#0d1117", bg3:"#111820", bg4:"#161e28",
-  green:"#00e676", greenDim:"rgba(0,230,118,0.10)", greenBorder:"rgba(0,230,118,0.25)",
-  white:"#f0f4f8", muted:"#5a7a96", red:"#ff5252", gold:"#ffd600",
-  blue:"#40c4ff", border:"rgba(255,255,255,0.07)",
+const C = {
+  bg:'#f6f6f7', surface:'#ffffff', border:'#e3e3e8', border2:'#d1d1d6',
+  text:'#1a1a1a', text2:'#6b7280', text3:'#9ca3af',
+  green:'#008060', greenBg:'#f0faf7', greenBd:'#b7dfd5',
+  blue:'#2563eb', blueBg:'#eff6ff',
+  red:'#dc2626', redBg:'#fef2f2',
+  gold:'#d97706', goldBg:'#fffbeb',
+  nav:'#1a1a2e', navText:'rgba(255,255,255,0.6)', navActive:'#ffffff',
 }
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '—'
-const fmtMoney = (n) => n ? '$' + (n < 100 ? Number(n).toFixed(2) : Math.round(n).toLocaleString()) : '—'
+const G = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,sans-serif;background:${C.bg};color:${C.text};-webkit-font-smoothing:antialiased}
+  .lay{display:flex;min-height:100vh}
+  .nav{width:232px;background:${C.nav};flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:50;display:flex;flex-direction:column}
+  .main{margin-left:232px;flex:1}
+  .hdr{background:#fff;border-bottom:1px solid ${C.border};padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
+  .wrap{padding:28px;max-width:1200px}
+  .card{background:#fff;border:1px solid ${C.border};border-radius:12px}
+  .ch{padding:14px 20px;border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between}
+  .cb{padding:20px}
+  .bgg{background:${C.bg}}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:${C.text2};padding:0 16px 10px}
+  td{padding:11px 16px;border-top:1px solid ${C.border};font-size:13px;color:${C.text}}
+  tr:hover td{background:${C.bg}}
+  input,textarea,select{font-family:'Inter',sans-serif}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px ${C.greenBd}}50%{box-shadow:0 0 0 6px ${C.greenBd}}}
+  .fade{animation:fadein .25s ease both}
+`
 
-function Stat({label, value, color}) {
-  return (
-    <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 20px',textAlign:'center'}}>
-      <div style={{fontSize:28,fontWeight:800,color:color||T.white,lineHeight:1,marginBottom:4}}>{value}</div>
-      <div style={{fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+const fmtMoney = n => n ? '$'+( n<100 ? Number(n).toFixed(2) : Math.round(n).toLocaleString() ) : '—'
+const fmtDate  = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'
+const fmtTime  = d => d ? new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '—'
+const fmtHour  = h => h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`
+const fmtPath  = p => p==='/'?'Home':p==='/app'?'App':p.startsWith('/blog/')?`Blog: ${p.replace('/blog/','')}`:p
+
+const Badge = ({type,children}) => {
+  const map={green:`background:${C.greenBg};color:${C.green};border:1px solid ${C.greenBd}`,blue:`background:${C.blueBg};color:${C.blue};border:1px solid #bfdbfe`,red:`background:${C.redBg};color:${C.red};border:1px solid #fecaca`,gold:`background:${C.goldBg};color:${C.gold};border:1px solid #fde68a`,gray:'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb'}
+  return <span style={{...(()=>{const s={};(map[type]||map.gray).split(';').forEach(r=>{const[k,v]=r.split(':');if(k&&v){const key=k.replace(/-([a-z])/g,(_,c)=>c.toUpperCase());s[key]=v}});return s})(),display:'inline-flex',alignItems:'center',borderRadius:6,padding:'3px 8px',fontSize:11,fontWeight:600}}>{children}</span>
+}
+
+const Btn = ({variant='primary',children,onClick,disabled,style={}}) => {
+  const base={border:'none',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:disabled?'not-allowed':'pointer',fontFamily:'inherit',opacity:disabled?.6:1,transition:'all .15s',...style}
+  const v={primary:{background:C.green,color:'#fff'},secondary:{background:'#fff',color:C.text,border:`1px solid ${C.border2}`},danger:{background:C.redBg,color:C.red,border:'1px solid #fecaca'}}
+  return <button style={{...base,...(v[variant]||v.primary)}} onClick={onClick} disabled={disabled}>{children}</button>
+}
+
+function Spinner(){return <div style={{width:16,height:16,border:`2px solid ${C.border}`,borderTopColor:C.green,borderRadius:'50%',animation:'spin .7s linear infinite'}}/>}
+
+function NavItem({icon,label,active,onClick,badge}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',background:active?'rgba(255,255,255,0.12)':'transparent',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'inherit',color:active?C.navActive:C.navText,fontSize:13,fontWeight:active?600:400,transition:'all .15s',marginBottom:2}}>
+      <span style={{fontSize:16,width:22,textAlign:'center'}}>{icon}</span>
+      <span style={{flex:1,textAlign:'left'}}>{label}</span>
+      {badge>0&&<span style={{background:'#ef4444',color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:10,fontWeight:700}}>{badge}</span>}
+    </button>
+  )
+}
+
+function Sparkline({data,color=C.green,h=36,w=100}){
+  if(!data||data.length<2)return null
+  const max=Math.max(...data,1)
+  const pts=data.map((v,i)=>`${(i/(data.length-1))*w},${h-(v/max)*(h-4)}`).join(' ')
+  return <svg width={w} height={h} style={{overflow:'visible'}}><polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/></svg>
+}
+
+// ─── ANALYTICS ─────────────────────────────────────────────────────────
+function AnalyticsTab(){
+  const [d,setD]=useState(null)
+  const [loading,setLoading]=useState(true)
+  const [range,setRange]=useState(7)
+  const [stamp,setStamp]=useState(null)
+
+  const load=useCallback(async()=>{
+    try{
+      const since=new Date(Date.now()-range*864e5).toISOString()
+      const fiveMin=new Date(Date.now()-5*60000).toISOString()
+      const[{data:all},{data:liveRows}]=await Promise.all([
+        sb.from('page_views').select('path,created_at,session_id,referrer').gte('created_at',since).order('created_at',{ascending:false}),
+        sb.from('page_views').select('session_id').gte('created_at',fiveMin),
+      ])
+      const views=all||[]
+      const liveUnique=new Set((liveRows||[]).map(v=>v.session_id)).size
+      const uniqueSessions=new Set(views.map(v=>v.session_id)).size
+
+      const pageCounts={}
+      views.forEach(v=>{pageCounts[v.path]=(pageCounts[v.path]||0)+1})
+      const topPages=Object.entries(pageCounts).sort((a,b)=>b[1]-a[1]).slice(0,8)
+
+      const last24=views.filter(v=>new Date(v.created_at)>new Date(Date.now()-864e5))
+      const hourBuckets=Array(24).fill(0)
+      last24.forEach(v=>{hourBuckets[new Date(v.created_at).getHours()]++})
+
+      const dayUniq={}
+      views.forEach(v=>{
+        const dd=v.created_at?.split('T')[0]
+        if(dd){if(!dayUniq[dd])dayUniq[dd]=new Set();dayUniq[dd].add(v.session_id)}
+      })
+      const dayArr=Object.entries(dayUniq).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,s])=>[d,s.size])
+
+      const refMap={}
+      views.forEach(v=>{if(v.referrer){try{const h=new URL(v.referrer).hostname.replace('www.','');refMap[h]=(refMap[h]||0)+1}catch(e){}}})
+      const topRefs=Object.entries(refMap).sort((a,b)=>b[1]-a[1]).slice(0,6)
+
+      const land=pageCounts['/']||0
+      const app=pageCounts['/app']||0
+      const conv=land>0?((app/land)*100).toFixed(1):'—'
+
+      const spark=Array(7).fill(0)
+      const tod=new Date();tod.setHours(0,0,0,0)
+      views.forEach(v=>{const dd=new Date(v.created_at);dd.setHours(0,0,0,0);const diff=Math.floor((tod-dd)/864e5);if(diff>=0&&diff<7)spark[6-diff]++})
+
+      setD({total:views.length,uniqueSessions,liveUnique,topPages,hourBuckets,dayArr,topRefs,land,app,conv,spark,recent:views.slice(0,30)})
+      setStamp(new Date())
+    }catch(e){console.error(e)}
+    setLoading(false)
+  },[range])
+
+  useEffect(()=>{load()},[load])
+  useEffect(()=>{const i=setInterval(load,30000);return()=>clearInterval(i)},[load])
+
+  if(loading)return <div style={{display:'flex',alignItems:'center',gap:10,padding:'48px 0',color:C.text2}}><Spinner/>Loading analytics...</div>
+  if(!d)return <p style={{color:C.red}}>Failed to load.</p>
+
+  const maxH=Math.max(...d.hourBuckets,1)
+  const maxD=Math.max(...d.dayArr.map(r=>r[1]),1)
+
+  return(
+    <div className="fade">
+      {/* Toolbar */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,background:C.greenBg,border:`1px solid ${C.greenBd}`,borderRadius:8,padding:'7px 14px'}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:C.green,display:'inline-block',boxShadow:`0 0 0 3px ${C.greenBd}`,animation:'pulse 2s ease infinite'}}/>
+          <span style={{fontSize:13,fontWeight:600,color:C.green}}>
+            {d.liveUnique} unique visitor{d.liveUnique!==1?'s':''} right now
+          </span>
+          <span style={{fontSize:11,color:C.green,opacity:.6}}>· last 5 min · {stamp?`updated ${fmtTime(stamp)}`:''}</span>
+        </div>
+        <div style={{display:'flex',gap:4}}>
+          {[[1,'24h'],[7,'7 days'],[30,'30 days']].map(([v,l])=>(
+            <button key={v} onClick={()=>setRange(v)} style={{background:range===v?C.text:'#fff',color:range===v?'#fff':C.text2,border:`1px solid ${range===v?C.text:C.border2}`,borderRadius:7,padding:'6px 12px',fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI row */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:14,marginBottom:24}}>
+        {[
+          {label:'Total views',      val:d.total,           sub:'all pages',     color:C.blue,  spark:d.spark},
+          {label:'Unique visitors',  val:d.uniqueSessions,  sub:'unique sessions',color:C.green, spark:null},
+          {label:'Landing views',    val:d.land,            sub:'homepage',       color:C.text,  spark:null},
+          {label:'App opens',        val:d.app,             sub:'paid users',     color:C.green, spark:null},
+          {label:'Conversion rate',  val:`${d.conv}%`,      sub:'landing→app',    color:parseFloat(d.conv)>2?C.green:C.gold, spark:null},
+        ].map(({label,val,sub,color,spark})=>(
+          <div key={label} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:18}}>
+            <div style={{fontSize:11,fontWeight:500,color:C.text2,marginBottom:8,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</div>
+            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:8}}>
+              <div>
+                <div style={{fontSize:26,fontWeight:700,color,lineHeight:1}}>{val}</div>
+                <div style={{fontSize:11,color:C.text3,marginTop:3}}>{sub}</div>
+              </div>
+              {spark&&<Sparkline data={spark} color={color}/>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div className="card">
+          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Visitors by hour</span><span style={{fontSize:11,color:C.text3}}>Last 24h · current hour highlighted</span></div>
+          <div className="cb">
+            <div style={{display:'flex',alignItems:'flex-end',gap:3,height:80}}>
+              {d.hourBuckets.map((v,i)=>(
+                <div key={i} title={`${fmtHour(i)}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxH)*78)}px`,background:i===new Date().getHours()?C.green:v>0?'#93c5fd':C.border,borderRadius:'3px 3px 0 0',transition:'height .3s'}}/>
+              ))}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:10,color:C.text3}}>
+              {['12am','3am','6am','9am','12pm','3pm','6pm','9pm'].map(l=><span key={l}>{l}</span>)}
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Unique visitors per day</span><span style={{fontSize:11,color:C.text3}}>{range===1?'24h':`Last ${range} days`}</span></div>
+          <div className="cb">
+            {d.dayArr.length<2
+              ?<div style={{height:80,display:'flex',alignItems:'center',justifyContent:'center',color:C.text3,fontSize:13}}>Not enough data yet</div>
+              :<>
+                <div style={{display:'flex',alignItems:'flex-end',gap:4,height:80}}>
+                  {d.dayArr.map(([dd,v])=>(
+                    <div key={dd} title={`${new Date(dd).toLocaleDateString('en',{month:'short',day:'numeric'})}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxD)*78)}px`,background:'#60a5fa',borderRadius:'3px 3px 0 0',transition:'height .3s'}}/>
+                  ))}
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:10,color:C.text3}}>
+                  {d.dayArr.length>0&&<span>{new Date(d.dayArr[0][0]).toLocaleDateString('en',{month:'short',day:'numeric'})}</span>}
+                  {d.dayArr.length>1&&<span>{new Date(d.dayArr[d.dayArr.length-1][0]).toLocaleDateString('en',{month:'short',day:'numeric'})}</span>}
+                </div>
+              </>
+            }
+          </div>
+        </div>
+      </div>
+
+      {/* Pages + Sources */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div className="card">
+          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Top pages</span></div>
+          <div style={{padding:'6px 0'}}>
+            {d.topPages.length===0
+              ?<p style={{padding:'12px 20px',color:C.text3,fontSize:13}}>No data yet</p>
+              :d.topPages.map(([path,count],i)=>{
+                const pct=Math.round((count/d.topPages[0][1])*100)
+                return(
+                  <div key={path} style={{padding:'8px 20px',position:'relative',overflow:'hidden'}}>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'rgba(37,99,235,0.06)'}}/>
+                    <div style={{position:'relative',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontSize:13,fontWeight:500}}>{fmtPath(path)}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:12,color:C.text2}}>{count}</span>
+                        {i===0&&<Badge type="green">Top</Badge>}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            }
+          </div>
+        </div>
+        <div className="card">
+          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Traffic sources</span></div>
+          <div style={{padding:'6px 0'}}>
+            {d.topRefs.length===0
+              ?<p style={{padding:'12px 20px',color:C.text3,fontSize:13}}>No referrer data yet — most visits are direct.</p>
+              :d.topRefs.map(([ref,count])=>{
+                const pct=Math.round((count/d.topRefs[0][1])*100)
+                return(
+                  <div key={ref} style={{padding:'8px 20px',position:'relative',overflow:'hidden'}}>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'rgba(217,119,6,0.06)'}}/>
+                    <div style={{position:'relative',display:'flex',justifyContent:'space-between'}}>
+                      <span style={{fontSize:13,fontWeight:500}}>{ref}</span>
+                      <span style={{fontSize:12,color:C.text2}}>{count}</span>
+                    </div>
+                  </div>
+                )
+              })
+            }
+            {d.topRefs.length>0&&(
+              <div style={{padding:'8px 20px',borderTop:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between'}}>
+                <span style={{fontSize:12,color:C.text3}}>Direct / unknown</span>
+                <span style={{fontSize:12,color:C.text3}}>{d.total-d.topRefs.reduce((a,[,c])=>a+c,0)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent */}
+      <div className="card">
+        <div className="ch">
+          <span style={{fontSize:13,fontWeight:600}}>Recent visitors</span>
+          <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:C.text3}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:C.green,display:'inline-block'}}/>
+            Live · refreshes every 30s
+          </div>
+        </div>
+        <div style={{overflowX:'auto'}}>
+          <table>
+            <thead><tr><th>Time</th><th>Page</th><th>Source</th><th>Session</th></tr></thead>
+            <tbody>
+              {d.recent.map((v,i)=>(
+                <tr key={i}>
+                  <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtTime(v.created_at)}</td>
+                  <td style={{fontWeight:500}}>{fmtPath(v.path)}</td>
+                  <td style={{color:C.text2}}>{v.referrer?(()=>{try{return new URL(v.referrer).hostname.replace('www.','')}catch(e){return'direct'}})():'direct'}</td>
+                  <td style={{color:C.text3,fontFamily:'monospace',fontSize:11}}>{v.session_id?.slice(0,8)}…</td>
+                </tr>
+              ))}
+              {d.recent.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:C.text3,padding:'32px'}}>No visits recorded yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
 
-function Badge({children, color}) {
-  return (
-    <span style={{background:`${color}18`,border:`1px solid ${color}44`,color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,letterSpacing:'0.04em'}}>
-      {children}
-    </span>
-  )
-}
+// ─── OVERVIEW ──────────────────────────────────────────────────────────
+function OverviewTab({onNav}){
+  const [stats,setStats]=useState(null)
+  const [recent,setRecent]=useState([])
 
-// ─── REVIEWS TAB ──────────────────────────────────────────────────────
-function ReviewsTab() {
-  const [reviews, setReviews] = useState([])
-  const [filter, setFilter] = useState('pending') // pending | approved | all
-  const [loading, setLoading] = useState(true)
+  useEffect(()=>{
+    Promise.all([
+      sb.from('intake').select('*',{count:'exact',head:true}),
+      sb.from('cravings').select('*',{count:'exact',head:true}),
+      sb.from('reviews').select('id,approved'),
+      sb.from('blog_posts').select('id,published'),
+      sb.from('intake').select('email,created_at,quit_type').order('created_at',{ascending:false}).limit(5),
+    ]).then(([{count:users},{count:cravings},rev,posts,rec])=>{
+      const rv=rev.data||[],ps=posts.data||[]
+      setStats({users:users||0,cravings:cravings||0,pending:rv.filter(r=>!r.approved).length,approved:rv.filter(r=>r.approved).length,posts:ps.filter(p=>p.published).length})
+      setRecent(rec.data||[])
+    })
+  },[])
 
-  useEffect(() => { loadReviews() }, [filter])
-
-  const loadReviews = async () => {
-    setLoading(true)
-    let q = sb.from('reviews').select('*').order('created_at', {ascending: false})
-    if (filter === 'pending') q = q.eq('approved', false)
-    if (filter === 'approved') q = q.eq('approved', true)
-    const { data } = await q
-    setReviews(data || [])
-    setLoading(false)
-  }
-
-  const approve = async (id) => {
-    await sb.from('reviews').update({approved: true}).eq('id', id)
-    loadReviews()
-  }
-
-  const reject = async (id) => {
-    if (!confirm('Delete this review?')) return
-    await sb.from('reviews').delete().eq('id', id)
-    loadReviews()
-  }
-
-  return (
-    <div>
-      {/* Filter tabs */}
-      <div style={{display:'flex',gap:8,marginBottom:20}}>
-        {[['pending','Pending'],['approved','Approved'],['all','All']].map(([v,l]) => (
-          <button key={v} onClick={()=>setFilter(v)} style={{
-            background:filter===v?T.green:T.bg3,
-            color:filter===v?'#000':T.muted,
-            border:`1px solid ${filter===v?T.green:T.border}`,
-            borderRadius:8,padding:'7px 16px',fontSize:13,fontWeight:600,
-            cursor:'pointer',fontFamily:'inherit'
-          }}>{l}</button>
+  return(
+    <div className="fade">
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:14,marginBottom:24}}>
+        {stats&&[
+          {icon:'👥',label:'Total users',     val:stats.users,    color:C.blue,  tab:'users'},
+          {icon:'💪',label:'Cravings logged', val:stats.cravings, color:C.green, tab:null},
+          {icon:'⭐',label:'Pending reviews', val:stats.pending,  color:C.gold,  tab:'reviews'},
+          {icon:'✅',label:'Live reviews',    val:stats.approved, color:C.green, tab:'reviews'},
+          {icon:'📝',label:'Blog posts',      val:stats.posts,    color:C.blue,  tab:'blog'},
+        ].map(({icon,label,val,color,tab})=>(
+          <div key={label} onClick={tab?()=>onNav(tab):undefined} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:20,cursor:tab?'pointer':'default',transition:'box-shadow .15s'}}
+            onMouseEnter={e=>{if(tab)e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}
+            onMouseLeave={e=>{e.currentTarget.style.boxShadow='none'}}>
+            <div style={{fontSize:24,marginBottom:10}}>{icon}</div>
+            <div style={{fontSize:28,fontWeight:700,color,lineHeight:1,marginBottom:4}}>{val}</div>
+            <div style={{fontSize:12,color:C.text2}}>{label}</div>
+          </div>
         ))}
       </div>
 
-      {loading ? (
-        <p style={{color:T.muted}}>Loading...</p>
-      ) : reviews.length === 0 ? (
-        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:32,textAlign:'center'}}>
-          <p style={{color:T.muted}}>No {filter} reviews yet.</p>
-        </div>
-      ) : (
-        reviews.map(r => (
-          <div key={r.id} style={{background:T.bg3,border:`1px solid ${r.approved?T.greenBorder:T.border}`,borderRadius:12,padding:20,marginBottom:12}}>
-            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:12}}>
-              <div>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                  <span style={{fontWeight:700,fontSize:15}}>{r.name}</span>
-                  {r.location && <span style={{fontSize:12,color:T.muted}}>📍 {r.location}</span>}
-                  <span style={{color:T.gold,fontSize:13}}>{'★'.repeat(r.rating||5)}</span>
-                </div>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                  {r.days_completed && <Badge color={T.blue}>{r.days_completed} days free</Badge>}
-                  {r.quit_type && <Badge color={T.green}>{r.quit_type}</Badge>}
-                  {r.weekly_spend && <Badge color={T.gold}>${Math.round(r.weekly_spend*52)}/yr saved</Badge>}
-                  <span style={{fontSize:11,color:T.muted}}>{fmtDate(r.created_at)}</span>
-                </div>
-              </div>
-              {r.approved ? (
-                <Badge color={T.green}>✓ Live</Badge>
-              ) : (
-                <Badge color={T.gold}>Pending</Badge>
-              )}
+      {stats?.pending>0&&(
+        <div style={{background:C.goldBg,border:'1px solid #fde68a',borderRadius:10,padding:'14px 18px',marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:20}}>⭐</span>
+            <div>
+              <div style={{fontWeight:600,fontSize:13,color:C.gold}}>{stats.pending} review{stats.pending>1?'s':''} waiting for approval</div>
+              <div style={{fontSize:12,color:'#92400e',marginTop:1}}>Approve them to build social proof on your landing page</div>
             </div>
+          </div>
+          <Btn variant="secondary" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>onNav('reviews')}>Review now →</Btn>
+        </div>
+      )}
 
-            <p style={{color:'rgba(240,244,248,0.85)',fontSize:14,lineHeight:1.7,fontStyle:'italic',marginBottom:14}}>
-              "{r.review_text}"
-            </p>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div className="card">
+          <div className="ch">
+            <span style={{fontSize:13,fontWeight:600}}>Recent signups</span>
+            <Btn variant="secondary" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>onNav('users')}>View all</Btn>
+          </div>
+          <table>
+            <thead><tr><th>Email</th><th>Type</th><th>Joined</th></tr></thead>
+            <tbody>
+              {recent.map((u,i)=>(
+                <tr key={i}>
+                  <td style={{maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{u.email||<span style={{color:C.text3}}>—</span>}</td>
+                  <td>{u.quit_type?<Badge type={u.quit_type==='vaping'?'blue':u.quit_type==='both'?'gold':'green'}>{u.quit_type}</Badge>:'—'}</td>
+                  <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtDate(u.created_at)}</td>
+                </tr>
+              ))}
+              {recent.length===0&&<tr><td colSpan={3} style={{color:C.text3,textAlign:'center',padding:'20px'}}>No users yet</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="card">
+          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Quick links</span></div>
+          <div style={{padding:'4px 0'}}>
+            {[['🌐','Live site','https://smarterquit.com'],['💳','Stripe','https://dashboard.stripe.com'],['🗄️','Supabase','https://supabase.com/dashboard'],['📧','Resend','https://resend.com'],['📌','Pinterest Ads','https://ads.pinterest.com']].map(([icon,label,url])=>(
+              <a key={url} href={url} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:10,padding:'10px 20px',color:C.text,textDecoration:'none',fontSize:13,transition:'background .1s'}}
+                onMouseEnter={e=>e.currentTarget.style.background=C.bg} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <span style={{fontSize:16}}>{icon}</span><span style={{flex:1}}>{label}</span><span style={{color:C.text3,fontSize:11}}>↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-            <div style={{display:'flex',gap:8}}>
-              {!r.approved && (
-                <button onClick={()=>approve(r.id)} style={{
-                  background:T.greenDim,border:`1px solid ${T.greenBorder}`,color:T.green,
-                  borderRadius:8,padding:'7px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'
-                }}>✓ Approve & publish</button>
-              )}
-              <button onClick={()=>reject(r.id)} style={{
-                background:'rgba(255,82,82,0.08)',border:'1px solid rgba(255,82,82,0.2)',color:T.red,
-                borderRadius:8,padding:'7px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'
-              }}>✕ Delete</button>
+// ─── REVIEWS ───────────────────────────────────────────────────────────
+function ReviewsTab(){
+  const [reviews,setReviews]=useState([])
+  const [filter,setFilter]=useState('pending')
+  const [loading,setLoading]=useState(true)
+
+  useEffect(()=>{ load() },[filter])
+
+  const load=async()=>{
+    setLoading(true)
+    let q=sb.from('reviews').select('*').order('created_at',{ascending:false})
+    if(filter==='pending') q=q.eq('approved',false)
+    if(filter==='approved') q=q.eq('approved',true)
+    const{data}=await q; setReviews(data||[]); setLoading(false)
+  }
+
+  const approve=async id=>{await sb.from('reviews').update({approved:true}).eq('id',id);load()}
+  const del=async id=>{if(!confirm('Delete?'))return;await sb.from('reviews').delete().eq('id',id);load()}
+
+  return(
+    <div className="fade">
+      <div style={{display:'flex',gap:4,marginBottom:20}}>
+        {[['pending','Pending'],['approved','Approved'],['all','All']].map(([v,l])=>(
+          <Btn key={v} variant={filter===v?'primary':'secondary'} style={{fontSize:12,padding:'6px 14px'}} onClick={()=>setFilter(v)}>{l}</Btn>
+        ))}
+      </div>
+      {loading?<div style={{display:'flex',gap:8,alignItems:'center',color:C.text2,padding:'20px 0'}}><Spinner/>Loading...</div>
+        :reviews.length===0?<div className="card" style={{padding:48,textAlign:'center'}}><div style={{fontSize:36,marginBottom:12}}>⭐</div><p style={{color:C.text2}}>No {filter} reviews</p></div>
+        :reviews.map(r=>(
+          <div key={r.id} className="card fade" style={{marginBottom:12}}>
+            <div style={{padding:'16px 20px'}}>
+              <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:10}}>
+                <div>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                    <span style={{fontWeight:600,fontSize:14}}>{r.name}</span>
+                    {r.location&&<span style={{fontSize:12,color:C.text2}}>📍{r.location}</span>}
+                    <span style={{color:'#f59e0b'}}>{('★').repeat(r.rating||5)}</span>
+                  </div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {r.days_completed&&<Badge type="blue">{r.days_completed} days free</Badge>}
+                    {r.quit_type&&<Badge type="green">{r.quit_type}</Badge>}
+                    {r.weekly_spend&&<Badge type="gold">${Math.round(r.weekly_spend*52)}/yr saved</Badge>}
+                    <span style={{fontSize:11,color:C.text3,alignSelf:'center'}}>{fmtDate(r.created_at)}</span>
+                  </div>
+                </div>
+                <Badge type={r.approved?'green':'gold'}>{r.approved?'Live':'Pending'}</Badge>
+              </div>
+              <p style={{color:C.text2,fontSize:14,lineHeight:1.65,fontStyle:'italic',marginBottom:14}}>"{r.review_text}"</p>
+              <div style={{display:'flex',gap:8}}>
+                {!r.approved&&<Btn variant="primary" style={{fontSize:12,padding:'6px 14px'}} onClick={()=>approve(r.id)}>✓ Approve &amp; publish</Btn>}
+                <Btn variant="danger" style={{fontSize:12,padding:'6px 12px'}} onClick={()=>del(r.id)}>Delete</Btn>
+              </div>
             </div>
           </div>
         ))
-      )}
+      }
     </div>
   )
 }
 
-// ─── ANALYTICS TAB ───────────────────────────────────────────────────
-function AnalyticsTab() {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [range, setRange] = useState(7) // days
+// ─── USERS ─────────────────────────────────────────────────────────────
+function UsersTab(){
+  const [users,setUsers]=useState([])
+  const [loading,setLoading]=useState(true)
+  const [stats,setStats]=useState({total:0,completed:0,active:0})
 
-  useEffect(() => { loadAnalytics() }, [range])
+  useEffect(()=>{
+    Promise.all([
+      sb.from('intake').select('*').order('created_at',{ascending:false}).limit(100),
+      sb.from('progress').select('session_token,completed_tasks'),
+    ]).then(([ir,pr])=>{
+      const intake=ir.data||[],prog=pr.data||[]
+      const pm={}; prog.forEach(p=>{pm[p.session_token]=p})
+      const m=intake.map(u=>({...u,tasksCount:(pm[u.session_token]?.completed_tasks||[]).length}))
+      setUsers(m)
+      setStats({total:m.length,completed:m.filter(u=>u.tasksCount>=21).length,active:m.filter(u=>{const d=u.start_date||u.startDate;return d&&Math.floor((Date.now()-new Date(d).getTime())/864e5)<=21}).length})
+      setLoading(false)
+    })
+  },[])
 
-  // Auto-refresh every 30 seconds for "live" feel
-  useEffect(() => {
-    const i = setInterval(loadAnalytics, 30000)
-    return () => clearInterval(i)
-  }, [range])
-
-  const loadAnalytics = async () => {
-    try {
-      const since = new Date(Date.now() - range * 864e5).toISOString()
-
-      // Total views in range
-      const { count: totalViews } = await sb.from('page_views')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', since)
-
-      // Unique sessions in range
-      const { data: sessions } = await sb.from('page_views')
-        .select('session_id')
-        .gte('created_at', since)
-      const uniqueSessions = new Set(sessions?.map(s => s.session_id)).size
-
-      // Views per page
-      const { data: allViews } = await sb.from('page_views')
-        .select('path, created_at, session_id, referrer')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-
-      const pageCounts = {}
-      allViews?.forEach(v => {
-        pageCounts[v.path] = (pageCounts[v.path] || 0) + 1
-      })
-      const topPages = Object.entries(pageCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-
-      // Views per hour (last 24h)
-      const last24h = allViews?.filter(v =>
-        new Date(v.created_at) > new Date(Date.now() - 864e5)
-      )
-      const hourBuckets = Array(24).fill(0)
-      last24h?.forEach(v => {
-        hourBuckets[new Date(v.created_at).getHours()]++
-      })
-
-      // Views per day in range
-      const dayBuckets = {}
-      allViews?.forEach(v => {
-        const day = v.created_at?.split('T')[0]
-        if (day) dayBuckets[day] = (dayBuckets[day] || 0) + 1
-      })
-      const dayData = Object.entries(dayBuckets).sort((a,b) => a[0].localeCompare(b[0]))
-
-      // Top referrers
-      const refCounts = {}
-      allViews?.forEach(v => {
-        if (v.referrer) {
-          try {
-            const host = new URL(v.referrer).hostname.replace('www.','')
-            refCounts[host] = (refCounts[host] || 0) + 1
-          } catch(e) {}
-        }
-      })
-      const topRefs = Object.entries(refCounts).sort((a,b) => b[1]-a[1]).slice(0,5)
-
-      // Live visitors (last 5 minutes)
-      const fiveMinsAgo = new Date(Date.now() - 5 * 60000).toISOString()
-      const { count: liveCount } = await sb.from('page_views')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', fiveMinsAgo)
-
-      // Landing page conversion (views vs /app views)
-      const landingViews = pageCounts['/'] || 0
-      const appViews = pageCounts['/app'] || 0
-      const convRate = landingViews > 0 ? ((appViews / landingViews) * 100).toFixed(1) : 0
-
-      // Recent visits
-      const recent = allViews?.slice(0, 20) || []
-
-      setData({ totalViews, uniqueSessions, topPages, hourBuckets, dayData, topRefs, liveCount, landingViews, appViews, convRate, recent })
-    } catch(e) {
-      console.error('Analytics error:', e)
-    }
-    setLoading(false)
-  }
-
-  const fmtPath = (p) => p === '/' ? '🏠 Home' : p === '/app' ? '📱 App' : p.startsWith('/blog/') ? `📝 ${p.replace('/blog/','')}` : p
-
-  const fmtHour = (h) => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`
-
-  const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' })
-
-  const fmtTime = (d) => new Date(d).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })
-
-  if (loading) return <p style={{color:T.muted,padding:'20px 0'}}>Loading analytics...</p>
-  if (!data) return <p style={{color:T.red}}>Failed to load analytics.</p>
-
-  const maxHour = Math.max(...data.hourBuckets, 1)
-  const maxDay = Math.max(...data.dayData.map(d => d[1]), 1)
-
-  return (
-    <div>
-      {/* Range selector + live indicator */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div style={{width:8,height:8,borderRadius:'50%',background:'#00e676',boxShadow:'0 0 8px #00e676'}}/>
-          <span style={{fontSize:13,color:T.green,fontWeight:700}}>
-            {data.liveCount} visitor{data.liveCount !== 1 ? 's' : ''} in last 5 min
-          </span>
-        </div>
-        <div style={{display:'flex',gap:6}}>
-          {[[1,'24h'],[7,'7d'],[30,'30d']].map(([v,l]) => (
-            <button key={v} onClick={() => setRange(v)} style={{
-              background: range===v ? T.green : T.bg3,
-              color: range===v ? '#000' : T.muted,
-              border: `1px solid ${range===v ? T.green : T.border}`,
-              borderRadius: 7, padding: '6px 14px', fontSize: 12,
-              fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            }}>{l}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* Top stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:24}}>
-        {[
-          {label:'Total views', value:data.totalViews||0, color:T.white},
-          {label:'Unique visitors', value:data.uniqueSessions||0, color:T.blue},
-          {label:'Landing views', value:data.landingViews||0, color:T.muted},
-          {label:'App opens', value:data.appViews||0, color:T.green},
-          {label:'Est. conv. rate', value:`${data.convRate}%`, color:data.convRate>2?T.green:T.gold},
-        ].map(({label,value,color})=>(
-          <div key={label} style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:'14px 16px',textAlign:'center'}}>
-            <div style={{fontSize:26,fontWeight:800,color,lineHeight:1,marginBottom:4}}>{value}</div>
-            <div style={{fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{label}</div>
+  return(
+    <div className="fade">
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+        {[{l:'Total users',v:stats.total,c:C.text},{l:'Active in program',v:stats.active,c:C.blue},{l:'Completed 21 days',v:stats.completed,c:C.green}].map(({l,v,c})=>(
+          <div key={l} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:18}}>
+            <div style={{fontSize:26,fontWeight:700,color:c,marginBottom:4}}>{v}</div>
+            <div style={{fontSize:12,color:C.text2}}>{l}</div>
           </div>
         ))}
       </div>
-
-      {/* Hourly chart — last 24h */}
-      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:20,marginBottom:16}}>
-        <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:14}}>
-          Visitors by hour (last 24h)
-        </div>
-        <div style={{display:'flex',alignItems:'flex-end',gap:3,height:60}}>
-          {data.hourBuckets.map((v,i) => (
-            <div key={i} title={`${fmtHour(i)}: ${v} views`} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-              <div style={{
-                width:'100%',
-                height: v > 0 ? `${Math.max(4,(v/maxHour)*56)}px` : '3px',
-                background: v > 0 ? (v===Math.max(...data.hourBuckets)?T.green:'rgba(0,230,118,0.45)') : 'rgba(255,255,255,0.05)',
-                borderRadius:2,
-                transition:'height 0.3s',
-              }}/>
-            </div>
-          ))}
-        </div>
-        <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:T.muted,marginTop:6}}>
-          {['12am','3am','6am','9am','12pm','3pm','6pm','9pm'].map(l=>(
-            <span key={l}>{l}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Daily chart */}
-      {data.dayData.length > 1 && (
-        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:20,marginBottom:16}}>
-          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:14}}>
-            Daily views
-          </div>
-          <div style={{display:'flex',alignItems:'flex-end',gap:4,height:60}}>
-            {data.dayData.map(([day,v]) => (
-              <div key={day} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                <div style={{
-                  width:'100%',
-                  height:`${Math.max(4,(v/maxDay)*56)}px`,
-                  background:T.blue,borderRadius:2,
-                }} title={`${fmtDate(day)}: ${v}`}/>
-                <div style={{fontSize:8,color:T.muted,transform:'rotate(-45deg)',transformOrigin:'top left',whiteSpace:'nowrap',marginTop:2}}>
-                  {fmtDate(day)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
-        {/* Top pages */}
-        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
-          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Top pages</div>
-          {data.topPages.length === 0 ? (
-            <p style={{color:T.muted,fontSize:13}}>No data yet</p>
-          ) : data.topPages.map(([path,count]) => {
-            const maxCount = data.topPages[0][1]
-            return (
-              <div key={path} style={{marginBottom:8}}>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:3}}>
-                  <span style={{color:T.white,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'75%'}}>{fmtPath(path)}</span>
-                  <span style={{color:T.green,fontWeight:700,flexShrink:0}}>{count}</span>
-                </div>
-                <div style={{height:4,background:T.bg2,borderRadius:2}}>
-                  <div style={{height:'100%',width:`${(count/maxCount)*100}%`,background:T.green,borderRadius:2}}/>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Top referrers */}
-        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
-          <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>Top sources</div>
-          {data.topRefs.length === 0 ? (
-            <p style={{color:T.muted,fontSize:13}}>No referrer data yet</p>
-          ) : data.topRefs.map(([ref,count]) => (
-            <div key={ref} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,fontSize:13}}>
-              <span style={{color:T.white}}>{ref}</span>
-              <span style={{color:T.blue,fontWeight:700}}>{count}</span>
-            </div>
-          ))}
-          {data.topRefs.length > 0 && (
-            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:8,marginTop:4}}>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
-                <span style={{color:T.muted}}>Direct / unknown</span>
-                <span style={{color:T.muted}}>{(data.totalViews||0) - data.topRefs.reduce((a,[,c])=>a+c,0)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Recent visits */}
-      <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:16}}>
-        <div style={{fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>
-          Recent visits (live — refreshes every 30s)
-        </div>
-        <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <thead>
-              <tr>
-                {['Time','Page','Source'].map(h=>(
-                  <th key={h} style={{textAlign:'left',padding:'6px 10px',color:T.muted,fontWeight:600,borderBottom:`1px solid ${T.border}`}}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.recent.map((v,i)=>(
-                <tr key={i} style={{borderBottom:`1px solid ${T.border}`}}>
-                  <td style={{padding:'8px 10px',color:T.muted,whiteSpace:'nowrap'}}>{fmtTime(v.created_at)}</td>
-                  <td style={{padding:'8px 10px',color:T.white}}>{fmtPath(v.path)}</td>
-                  <td style={{padding:'8px 10px',color:T.muted,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                    {v.referrer ? (() => { try { return new URL(v.referrer).hostname.replace('www.','') } catch(e) { return 'direct' } })() : 'direct'}
-                  </td>
-                </tr>
-              ))}
-              {data.recent.length === 0 && (
-                <tr><td colSpan={3} style={{padding:'16px 10px',color:T.muted,textAlign:'center'}}>No visits yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── USERS TAB ────────────────────────────────────────────────────────
-function UsersTab() {
-  const [users, setUsers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({total:0, completed:0, active:0})
-
-  useEffect(() => { loadUsers() }, [])
-
-  const loadUsers = async () => {
-    setLoading(true)
-    try {
-      const [intakeRes, progressRes] = await Promise.all([
-        sb.from('intake').select('*').order('created_at', {ascending:false}).limit(100),
-        sb.from('progress').select('session_token, completed_tasks, welcomed'),
-      ])
-      const intake = intakeRes.data || []
-      const progress = progressRes.data || []
-      const progMap = {}
-      progress.forEach(p => { progMap[p.session_token] = p })
-
-      const merged = intake.map(u => ({
-        ...u,
-        progress: progMap[u.session_token] || null,
-        tasksCount: (progMap[u.session_token]?.completed_tasks || []).length,
-      }))
-
-      setUsers(merged)
-      setStats({
-        total: merged.length,
-        completed: merged.filter(u => u.tasksCount >= 21).length,
-        active: merged.filter(u => {
-          const d = u.start_date || u.startDate
-          if (!d) return false
-          const days = Math.floor((Date.now() - new Date(d).getTime()) / 864e5)
-          return days <= 21
-        }).length,
-      })
-    } catch(e) {
-      console.error(e)
-    }
-    setLoading(false)
-  }
-
-  const daysSince = (d) => d ? Math.floor((Date.now()-new Date(d).getTime())/864e5) : null
-
-  return (
-    <div>
-      {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:24}}>
-        <Stat label="Total users" value={stats.total} color={T.white}/>
-        <Stat label="Active (≤21 days)" value={stats.active} color={T.blue}/>
-        <Stat label="Completed program" value={stats.completed} color={T.green}/>
-      </div>
-
-      {loading ? <p style={{color:T.muted}}>Loading...</p> : (
-        <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-            <thead>
-              <tr style={{borderBottom:`1px solid ${T.border}`}}>
-                {['Email','Type','Started','Day','Tasks','Spend/wk','Status'].map(h => (
-                  <th key={h} style={{textAlign:'left',padding:'8px 12px',color:T.muted,fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u,i) => {
-                const startDate = u.start_date || u.startDate
-                const dayNum = startDate ? Math.min(daysSince(startDate)+1, 21) : null
-                const isActive = startDate && daysSince(startDate) <= 21
-                const isComplete = u.tasksCount >= 21
-                return (
-                  <tr key={u.id} style={{borderBottom:`1px solid ${T.border}`,background:i%2===0?'transparent':T.bg2}}>
-                    <td style={{padding:'10px 12px',color:T.white}}>{u.email || <span style={{color:T.muted}}>—</span>}</td>
-                    <td style={{padding:'10px 12px'}}>{u.quit_type || u.quitType ? <Badge color={T.green}>{u.quit_type||u.quitType}</Badge> : '—'}</td>
-                    <td style={{padding:'10px 12px',color:T.muted}}>{fmtDate(startDate || u.created_at)}</td>
-                    <td style={{padding:'10px 12px',color:T.blue,fontWeight:700}}>{dayNum ? `${dayNum}/21` : '—'}</td>
-                    <td style={{padding:'10px 12px',color:T.white}}>{u.tasksCount}/21</td>
-                    <td style={{padding:'10px 12px',color:T.gold}}>{fmtMoney(u.weekly_spend||u.weeklySpend)}</td>
-                    <td style={{padding:'10px 12px'}}>
-                      {isComplete ? <Badge color={T.green}>Complete</Badge>
-                        : isActive ? <Badge color={T.blue}>Active</Badge>
-                        : <Badge color={T.muted}>Inactive</Badge>}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── BLOGS TAB ────────────────────────────────────────────────────────
-function BlogsTab() {
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null) // null | 'new' | post object
-  const [form, setForm] = useState({slug:'',title:'',meta_description:'',excerpt:'',content:'',reading_time:5,published:true})
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => { loadPosts() }, [])
-
-  const loadPosts = async () => {
-    setLoading(true)
-    const { data } = await sb.from('blog_posts').select('id,slug,title,published,reading_time,published_at').order('published_at',{ascending:false})
-    setPosts(data || [])
-    setLoading(false)
-  }
-
-  const openNew = () => {
-    setForm({slug:'',title:'',meta_description:'',excerpt:'',content:'',reading_time:5,published:true})
-    setEditing('new')
-    setMsg('')
-  }
-
-  const openEdit = async (post) => {
-    const { data } = await sb.from('blog_posts').select('*').eq('id', post.id).single()
-    if (data) { setForm(data); setEditing(data) }
-    setMsg('')
-  }
-
-  const save = async () => {
-    if (!form.title || !form.slug || !form.content) { setMsg('Title, slug and content are required.'); return }
-    setSaving(true)
-    setMsg('')
-    try {
-      if (editing === 'new') {
-        const { error } = await sb.from('blog_posts').insert({...form, published_at: new Date().toISOString()})
-        if (error) throw error
-        setMsg('✅ Post published!')
-      } else {
-        const { error } = await sb.from('blog_posts').update(form).eq('id', editing.id)
-        if (error) throw error
-        setMsg('✅ Post updated!')
-      }
-      loadPosts()
-      setTimeout(() => setEditing(null), 1200)
-    } catch(e) {
-      setMsg(`❌ Error: ${e.message}`)
-    }
-    setSaving(false)
-  }
-
-  const togglePublish = async (post) => {
-    await sb.from('blog_posts').update({published: !post.published}).eq('id', post.id)
-    loadPosts()
-  }
-
-  const deletePost = async (post) => {
-    if (!confirm(`Delete "${post.title}"?`)) return
-    await sb.from('blog_posts').delete().eq('id', post.id)
-    loadPosts()
-  }
-
-  const slugify = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')
-
-  if (editing !== null) return (
-    <div>
-      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
-        <button onClick={()=>setEditing(null)} style={{background:T.bg3,border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'7px 14px',cursor:'pointer',fontFamily:'inherit',fontSize:13}}>← Back</button>
-        <h2 style={{fontSize:18,fontWeight:700}}>{editing==='new'?'New post':'Edit post'}</h2>
-      </div>
-
-      {[
-        ['Title', 'title', 'text', 'How to Quit Smoking in 21 Days'],
-        ['Slug (URL)', 'slug', 'text', 'how-to-quit-smoking-21-days'],
-        ['Meta description (SEO)', 'meta_description', 'text', '160 chars max'],
-        ['Excerpt (shown in blog list)', 'excerpt', 'text', '1-2 sentences'],
-      ].map(([label, field, type, placeholder]) => (
-        <div key={field} style={{marginBottom:16}}>
-          <label style={{display:'block',fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>{label}</label>
-          <input
-            type={type} value={form[field]||''} placeholder={placeholder}
-            onChange={e => {
-              const val = e.target.value
-              setForm(f => ({...f, [field]: val, ...(field==='title'&&editing==='new'?{slug:slugify(val)}:{})}))
-            }}
-            style={{width:'100%',background:T.bg2,border:`1px solid ${T.border}`,borderRadius:8,color:T.white,padding:'10px 14px',fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}
-          />
-        </div>
-      ))}
-
-      <div style={{marginBottom:16}}>
-        <label style={{display:'block',fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>
-          Content (HTML — use &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;)
-        </label>
-        <textarea
-          value={form.content||''} onChange={e=>setForm(f=>({...f,content:e.target.value}))}
-          rows={18} placeholder="<h2>Introduction</h2><p>Your content here...</p>"
-          style={{width:'100%',background:T.bg2,border:`1px solid ${T.border}`,borderRadius:8,color:T.white,padding:'10px 14px',fontSize:13,fontFamily:'monospace',outline:'none',boxSizing:'border-box',resize:'vertical'}}
-        />
-      </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
-        <div>
-          <label style={{display:'block',fontSize:12,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>Reading time (min)</label>
-          <input type="number" value={form.reading_time||5} onChange={e=>setForm(f=>({...f,reading_time:+e.target.value}))}
-            style={{width:'100%',background:T.bg2,border:`1px solid ${T.border}`,borderRadius:8,color:T.white,padding:'10px 14px',fontSize:14,fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
-        </div>
-        <div style={{display:'flex',alignItems:'flex-end',paddingBottom:2}}>
-          <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
-            <input type="checkbox" checked={form.published} onChange={e=>setForm(f=>({...f,published:e.target.checked}))} style={{width:18,height:18,accentColor:T.green}}/>
-            <span style={{fontSize:14,color:T.white}}>Published (visible on site)</span>
-          </label>
-        </div>
-      </div>
-
-      {msg && <p style={{color:msg.startsWith('✅')?T.green:T.red,fontSize:14,marginBottom:12}}>{msg}</p>}
-
-      <div style={{display:'flex',gap:10}}>
-        <button onClick={()=>setEditing(null)} style={{background:T.bg3,border:`1px solid ${T.border}`,color:T.muted,borderRadius:10,padding:'12px 24px',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Cancel</button>
-        <button onClick={save} disabled={saving} style={{background:T.green,color:'#000',border:'none',borderRadius:10,padding:'12px 28px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',opacity:saving?0.6:1}}>
-          {saving?'Saving...':'Save post'}
-        </button>
-      </div>
-    </div>
-  )
-
-  return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <p style={{color:T.muted,fontSize:14}}>{posts.length} posts total</p>
-        <button onClick={openNew} style={{background:T.green,color:'#000',border:'none',borderRadius:8,padding:'8px 18px',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-          + New post
-        </button>
-      </div>
-
-      {loading ? <p style={{color:T.muted}}>Loading...</p> : posts.map(post => (
-        <div key={post.id} style={{background:T.bg3,border:`1px solid ${post.published?T.border:'rgba(255,82,82,0.2)'}`,borderRadius:12,padding:'14px 16px',marginBottom:10,display:'flex',alignItems:'center',gap:12}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:600,fontSize:14,color:T.white,marginBottom:3}}>{post.title}</div>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <span style={{fontSize:11,color:T.muted}}>/blog/{post.slug}</span>
-              <span style={{fontSize:11,color:T.muted}}>·</span>
-              <span style={{fontSize:11,color:T.muted}}>{post.reading_time} min</span>
-              <span style={{fontSize:11,color:T.muted}}>·</span>
-              <span style={{fontSize:11,color:T.muted}}>{fmtDate(post.published_at)}</span>
-            </div>
-          </div>
-          <Badge color={post.published?T.green:T.red}>{post.published?'Live':'Draft'}</Badge>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={()=>openEdit(post)} style={{background:T.bg2,border:`1px solid ${T.border}`,color:T.muted,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Edit</button>
-            <button onClick={()=>togglePublish(post)} style={{background:T.bg2,border:`1px solid ${T.border}`,color:post.published?T.red:T.green,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>{post.published?'Unpublish':'Publish'}</button>
-            <button onClick={()=>deletePost(post)} style={{background:'rgba(255,82,82,0.08)',border:'1px solid rgba(255,82,82,0.2)',color:T.red,borderRadius:7,padding:'6px 12px',fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>Delete</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── ADMIN APP ────────────────────────────────────────────────────────
-export default function Admin() {
-  const [authed, setAuthed] = useState(false)
-  const [pw, setPw] = useState('')
-  const [pwError, setPwError] = useState(false)
-  const [tab, setTab] = useState('overview')
-  const [overview, setOverview] = useState(null)
-
-  useEffect(() => {
-    if (sessionStorage.getItem('sq_admin')) setAuthed(true)
-  }, [])
-
-  useEffect(() => {
-    if (authed && tab === 'overview') loadOverview()
-  }, [authed, tab])
-
-  const login = async () => {
-    try {
-      const res = await fetch('/api/admin-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw }),
-      })
-      if (res.status === 429) {
-        setPwError('too_many')
-        return
-      }
-      const data = await res.json()
-      if (data.ok) {
-        sessionStorage.setItem('sq_admin', '1')
-        setAuthed(true)
-        setPwError(false)
-      } else {
-        setPwError('wrong')
-      }
-    } catch(e) {
-      setPwError('wrong')
-    }
-  }
-
-  const loadOverview = async () => {
-    try {
-      const [usersRes, reviewsRes, postsRes, cravingsRes] = await Promise.all([
-        sb.from('intake').select('id', {count:'exact',head:true}),
-        sb.from('reviews').select('id,approved', {count:'exact'}),
-        sb.from('blog_posts').select('id,published', {count:'exact'}),
-        sb.from('cravings').select('id', {count:'exact',head:true}),
-      ])
-      const reviews = reviewsRes.data || []
-      setOverview({
-        users: usersRes.count || 0,
-        pendingReviews: reviews.filter(r=>!r.approved).length,
-        approvedReviews: reviews.filter(r=>r.approved).length,
-        publishedPosts: (postsRes.data||[]).filter(p=>p.published).length,
-        totalCravings: cravingsRes.count || 0,
-      })
-    } catch(e) { console.error(e) }
-  }
-
-  // Login screen
-  if (!authed) return (
-    <div style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center',padding:24,fontFamily:'system-ui,sans-serif'}}>
-      <div style={{maxWidth:360,width:'100%'}}>
-        <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:24,letterSpacing:'0.05em',color:T.white,marginBottom:32,textAlign:'center'}}>
-          Smarter<span style={{color:T.green}}>Quit</span> <span style={{color:T.muted,fontSize:16}}>Admin</span>
-        </div>
-        <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:16,padding:28}}>
-          <input
-            type="password" value={pw} onChange={e=>setPw(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&login()}
-            placeholder="Admin password"
-            style={{width:'100%',background:T.bg2,border:`1px solid ${pwError?T.red:T.border}`,borderRadius:10,color:T.white,padding:'14px 16px',fontSize:16,fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:12}}
-          />
-          {pwError === 'wrong' && <p style={{color:T.red,fontSize:13,marginBottom:12}}>Wrong password</p>}
-          {pwError === 'too_many' && <p style={{color:T.red,fontSize:13,marginBottom:12}}>Too many attempts. Try again in 15 minutes.</p>}
-          <button onClick={login} style={{width:'100%',background:T.green,color:'#000',border:'none',borderRadius:10,padding:'14px',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-            Enter →
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-
-  const TABS = [
-    {id:'overview',  label:'📊 Overview'},
-    {id:'analytics', label:'📈 Analytics'},
-    {id:'users',     label:'👥 Users'},
-    {id:'reviews',   label:'⭐ Reviews'},
-    {id:'blog',      label:'📝 Blog'},
-  ]
-
-  return (
-    <div style={{minHeight:'100vh',background:T.bg,color:T.white,fontFamily:'system-ui,sans-serif'}}>
-
-      {/* Header */}
-      <div style={{borderBottom:`1px solid ${T.border}`,padding:'0 24px'}}>
-        <div style={{maxWidth:1100,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'space-between',height:56}}>
-          <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:20,letterSpacing:'0.05em'}}>
-            Smarter<span style={{color:T.green}}>Quit</span> <span style={{color:T.muted,fontSize:14,fontFamily:'system-ui'}}>Admin</span>
-          </div>
-          <div style={{display:'flex',gap:4}}>
-            {TABS.map(t => (
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                background:tab===t.id?T.bg3:'none',
-                color:tab===t.id?T.white:T.muted,
-                border:`1px solid ${tab===t.id?T.border:'transparent'}`,
-                borderRadius:8,padding:'6px 14px',fontSize:13,fontWeight:tab===t.id?600:400,
-                cursor:'pointer',fontFamily:'inherit',
-              }}>{t.label}</button>
-            ))}
-          </div>
-          <button onClick={()=>{sessionStorage.removeItem('sq_admin');setAuthed(false)}} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>
-            Log out
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div style={{maxWidth:1100,margin:'0 auto',padding:'32px 24px'}}>
-
-        {/* OVERVIEW */}
-        {tab==='overview'&&(
-          <div>
-            <h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Overview</h1>
-            {!overview ? <p style={{color:T.muted}}>Loading...</p> : (
-              <>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:12,marginBottom:32}}>
-                  <Stat label="Total users" value={overview.users} color={T.white}/>
-                  <Stat label="Cravings logged" value={overview.totalCravings} color={T.blue}/>
-                  <Stat label="Pending reviews" value={overview.pendingReviews} color={overview.pendingReviews>0?T.gold:T.muted}/>
-                  <Stat label="Live reviews" value={overview.approvedReviews} color={T.green}/>
-                  <Stat label="Blog posts live" value={overview.publishedPosts} color={T.green}/>
-                </div>
-
-                {overview.pendingReviews > 0 && (
-                  <div style={{background:'rgba(255,214,0,0.06)',border:'1px solid rgba(255,214,0,0.25)',borderRadius:12,padding:16,marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
-                    <span style={{fontSize:20}}>⭐</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600,color:T.gold,marginBottom:2}}>{overview.pendingReviews} review{overview.pendingReviews>1?'s':''} waiting for approval</div>
-                      <div style={{fontSize:13,color:T.muted}}>Go to the Reviews tab to approve or reject them.</div>
-                    </div>
-                    <button onClick={()=>setTab('reviews')} style={{background:'rgba(255,214,0,0.15)',border:'1px solid rgba(255,214,0,0.3)',color:T.gold,borderRadius:8,padding:'7px 14px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
-                      Review now →
-                    </button>
-                  </div>
-                )}
-
-                <div style={{background:T.bg3,border:`1px solid ${T.border}`,borderRadius:12,padding:20}}>
-                  <h3 style={{fontSize:14,fontWeight:600,color:T.muted,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>Quick links</h3>
-                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    {[
-                      ['View live site', 'https://smarterquit.com'],
-                      ['Supabase dashboard', 'https://supabase.com/dashboard'],
-                      ['Stripe dashboard', 'https://dashboard.stripe.com'],
-                      ['Resend emails', 'https://resend.com'],
-                    ].map(([l,h]) => (
-                      <a key={h} href={h} target="_blank" rel="noreferrer" style={{background:T.bg2,border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'7px 14px',fontSize:13,textDecoration:'none'}}>
-                        {l} ↗
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+      <div className="card">
+        {loading?<div style={{display:'flex',gap:8,alignItems:'center',color:C.text2,padding:'20px'}}><Spinner/>Loading...</div>:(
+          <div style={{overflowX:'auto'}}>
+            <table>
+              <thead><tr><th>Email</th><th>Type</th><th>Started</th><th>Day</th><th>Tasks</th><th>Spend/wk</th><th>Status</th></tr></thead>
+              <tbody>
+                {users.map((u,i)=>{
+                  const start=u.start_date||u.startDate
+                  const dn=start?Math.min(Math.floor((Date.now()-new Date(start).getTime())/864e5)+1,21):null
+                  const isActive=start&&Math.floor((Date.now()-new Date(start).getTime())/864e5)<=21
+                  const isDone=u.tasksCount>=21
+                  return(
+                    <tr key={i}>
+                      <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:500}}>{u.email||<span style={{color:C.text3}}>—</span>}</td>
+                      <td>{u.quit_type?<Badge type={u.quit_type==='vaping'?'blue':u.quit_type==='both'?'gold':'green'}>{u.quit_type}</Badge>:'—'}</td>
+                      <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtDate(start||u.created_at)}</td>
+                      <td style={{fontWeight:600,color:C.blue}}>{dn?`${dn}/21`:'—'}</td>
+                      <td style={{color:C.text2}}>{u.tasksCount}/21</td>
+                      <td style={{color:C.text2}}>{u.weekly_spend?`$${u.weekly_spend}`:'—'}</td>
+                      <td><Badge type={isDone?'green':isActive?'blue':'gray'}>{isDone?'Complete':isActive?'Active':'Inactive'}</Badge></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
-
-        {tab==='users'     && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Users</h1><UsersTab/></div>}
-        {tab==='analytics' && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Analytics</h1><AnalyticsTab/></div>}
-        {tab==='reviews'   && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Reviews</h1><ReviewsTab/></div>}
-        {tab==='blog'      && <div><h1 style={{fontSize:22,fontWeight:700,marginBottom:24}}>Blog</h1><BlogsTab/></div>}
-
       </div>
+    </div>
+  )
+}
+
+// ─── BLOG ──────────────────────────────────────────────────────────────
+function BlogTab(){
+  const [posts,setPosts]=useState([])
+  const [loading,setLoading]=useState(true)
+  const [editing,setEditing]=useState(null)
+  const [form,setForm]=useState({slug:'',title:'',meta_description:'',excerpt:'',content:'',reading_time:5,published:true})
+  const [saving,setSaving]=useState(false)
+  const [msg,setMsg]=useState('')
+
+  useEffect(()=>{ load() },[])
+
+  const load=async()=>{ setLoading(true); const{data}=await sb.from('blog_posts').select('id,slug,title,published,reading_time,published_at').order('published_at',{ascending:false}); setPosts(data||[]); setLoading(false) }
+  const openNew=()=>{ setForm({slug:'',title:'',meta_description:'',excerpt:'',content:'',reading_time:5,published:true}); setEditing('new'); setMsg('') }
+  const openEdit=async post=>{ const{data}=await sb.from('blog_posts').select('*').eq('id',post.id).single(); if(data){setForm(data);setEditing(data)}; setMsg('') }
+  const slugify=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')
+  const save=async()=>{
+    if(!form.title||!form.slug||!form.content){setMsg('Title, slug and content are required.');return}
+    setSaving(true);setMsg('')
+    try{
+      if(editing==='new'){const{error}=await sb.from('blog_posts').insert({...form,published_at:new Date().toISOString()});if(error)throw error;setMsg('✅ Published!')}
+      else{const{error}=await sb.from('blog_posts').update(form).eq('id',editing.id);if(error)throw error;setMsg('✅ Updated!')}
+      load();setTimeout(()=>setEditing(null),1200)
+    }catch(e){setMsg(`Error: ${e.message}`)}
+    setSaving(false)
+  }
+  const toggle=async post=>{await sb.from('blog_posts').update({published:!post.published}).eq('id',post.id);load()}
+  const del=async post=>{if(!confirm(`Delete "${post.title}"?`))return;await sb.from('blog_posts').delete().eq('id',post.id);load()}
+
+  const inp=(ph,field,type='text')=>(
+    <input type={type} placeholder={ph} value={form[field]||''} onChange={e=>{const v=e.target.value;setForm(f=>({...f,[field]:v,...(field==='title'&&editing==='new'?{slug:slugify(v)}:{})}))} } style={{width:'100%',border:`1px solid ${C.border2}`,borderRadius:8,padding:'9px 12px',fontSize:13,fontFamily:'inherit',outline:'none',color:C.text,background:'#fff'}}/>
+  )
+
+  if(editing!==null)return(
+    <div className="fade">
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
+        <Btn variant="secondary" onClick={()=>setEditing(null)}>← Back</Btn>
+        <h2 style={{fontSize:17,fontWeight:600}}>{editing==='new'?'New post':'Edit post'}</h2>
+      </div>
+      <div className="card" style={{padding:24}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:14}}>
+          <div><label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Title</label>{inp('Post title...','title')}</div>
+          <div><label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Slug</label>{inp('url-slug','slug')}</div>
+        </div>
+        <div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Meta description</label>{inp('160 chars max for SEO','meta_description')}</div>
+        <div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Excerpt</label>{inp('1-2 sentences shown in blog list','excerpt')}</div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Content (HTML)</label>
+          <textarea value={form.content||''} onChange={e=>setForm(f=>({...f,content:e.target.value}))} rows={16} placeholder="<h2>Introduction</h2><p>Your content...</p>" style={{width:'100%',border:`1px solid ${C.border2}`,borderRadius:8,padding:'9px 12px',fontSize:12,fontFamily:'monospace',outline:'none',resize:'vertical',color:C.text,background:'#fff'}}/>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:18}}>
+          <div style={{width:130}}><label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:5}}>Reading time (min)</label><input type="number" value={form.reading_time||5} onChange={e=>setForm(f=>({...f,reading_time:+e.target.value}))} style={{width:'100%',border:`1px solid ${C.border2}`,borderRadius:8,padding:'9px 12px',fontSize:13,fontFamily:'inherit',outline:'none'}}/></div>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginTop:16,fontSize:13,fontWeight:500}}>
+            <input type="checkbox" checked={form.published} onChange={e=>setForm(f=>({...f,published:e.target.checked}))} style={{width:16,height:16,accentColor:C.green}}/>
+            Published (visible on site)
+          </label>
+        </div>
+        {msg&&<p style={{color:msg.startsWith('✅')?C.green:C.red,fontSize:13,marginBottom:12}}>{msg}</p>}
+        <div style={{display:'flex',gap:8}}>
+          <Btn variant="secondary" onClick={()=>setEditing(null)}>Cancel</Btn>
+          <Btn variant="primary" onClick={save} disabled={saving}>{saving?'Saving...':'Save post'}</Btn>
+        </div>
+      </div>
+    </div>
+  )
+
+  return(
+    <div className="fade">
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <p style={{color:C.text2,fontSize:13}}>{posts.length} posts total</p>
+        <Btn variant="primary" onClick={openNew}>+ New post</Btn>
+      </div>
+      <div className="card">
+        {loading?<div style={{display:'flex',gap:8,alignItems:'center',color:C.text2,padding:'20px'}}><Spinner/>Loading...</div>:(
+          <div style={{overflowX:'auto'}}>
+            <table>
+              <thead><tr><th>Title</th><th>Status</th><th>Read time</th><th>Published</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+              <tbody>
+                {posts.map(post=>(
+                  <tr key={post.id}>
+                    <td><div style={{fontWeight:500}}>{post.title}</div><div style={{fontSize:11,color:C.text3,marginTop:2}}>/blog/{post.slug}</div></td>
+                    <td><Badge type={post.published?'green':'gray'}>{post.published?'Live':'Draft'}</Badge></td>
+                    <td style={{color:C.text2}}>{post.reading_time} min</td>
+                    <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtDate(post.published_at)}</td>
+                    <td><div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                      <Btn variant="secondary" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>openEdit(post)}>Edit</Btn>
+                      <Btn variant="secondary" style={{fontSize:11,padding:'4px 10px',color:post.published?C.red:C.green}} onClick={()=>toggle(post)}>{post.published?'Unpublish':'Publish'}</Btn>
+                      <Btn variant="danger" style={{fontSize:11,padding:'4px 8px'}} onClick={()=>del(post)}>✕</Btn>
+                    </div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── ROOT ──────────────────────────────────────────────────────────────
+export default function Admin(){
+  const [authed,setAuthed]=useState(false)
+  const [pw,setPw]=useState('')
+  const [pwErr,setPwErr]=useState('')
+  const [tab,setTab]=useState('overview')
+  const [pending,setPending]=useState(0)
+
+  useEffect(()=>{ if(sessionStorage.getItem('sq_admin'))setAuthed(true) },[])
+  useEffect(()=>{ if(authed)sb.from('reviews').select('id',{count:'exact'}).eq('approved',false).then(({count})=>setPending(count||0)) },[authed])
+
+  const login=async()=>{
+    try{
+      const res=await fetch('/api/admin-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
+      if(res.status===429){setPwErr('Too many attempts. Try again in 15 minutes.');return}
+      const data=await res.json()
+      if(data.ok){sessionStorage.setItem('sq_admin','1');setAuthed(true);setPwErr('')}
+      else setPwErr('Incorrect password')
+    }catch(e){setPwErr('Connection error')}
+  }
+
+  if(!authed)return(
+    <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <style>{G}</style>
+      <div style={{maxWidth:380,width:'100%'}}>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:26,fontWeight:700,color:C.text,marginBottom:4}}>SmarterQuit</div>
+          <div style={{fontSize:13,color:C.text2}}>Admin panel</div>
+        </div>
+        <div className="card" style={{padding:28}}>
+          <label style={{display:'block',fontSize:12,fontWeight:500,color:C.text2,marginBottom:6}}>Password</label>
+          <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()} placeholder="Enter admin password" style={{width:'100%',border:`1px solid ${pwErr?C.red:C.border2}`,borderRadius:8,padding:'10px 12px',fontSize:14,fontFamily:'inherit',outline:'none',marginBottom:pwErr?8:16,color:C.text}}/>
+          {pwErr&&<p style={{color:C.red,fontSize:12,marginBottom:12}}>{pwErr}</p>}
+          <Btn variant="primary" onClick={login} style={{width:'100%',padding:'11px',fontSize:14}}>Sign in →</Btn>
+        </div>
+      </div>
+    </div>
+  )
+
+  const TABS=[{id:'overview',icon:'🏠',label:'Overview'},{id:'analytics',icon:'📈',label:'Analytics'},{id:'users',icon:'👥',label:'Users'},{id:'reviews',icon:'⭐',label:'Reviews',badge:pending},{id:'blog',icon:'📝',label:'Blog'}]
+  const titles={overview:'Overview',analytics:'Analytics',users:'Users',reviews:'Reviews',blog:'Blog'}
+
+  return(
+    <div className="lay">
+      <style>{G}</style>
+      <nav className="nav">
+        <div style={{padding:'20px 16px 14px'}}>
+          <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:18,fontWeight:700,color:'#fff',marginBottom:2}}>SmarterQuit</div>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.1em'}}>Admin</div>
+        </div>
+        <div style={{padding:'4px 8px',flex:1}}>
+          {TABS.map(t=><NavItem key={t.id} icon={t.icon} label={t.label} active={tab===t.id} onClick={()=>setTab(t.id)} badge={t.badge}/>)}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+          <a href="https://smarterquit.com" target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:8,color:'rgba(255,255,255,0.4)',textDecoration:'none',fontSize:12,marginBottom:8}}>
+            <span>🌐</span>View live site ↗
+          </a>
+          <button onClick={()=>{sessionStorage.removeItem('sq_admin');setAuthed(false)}} style={{background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer',fontSize:12,fontFamily:'inherit',padding:0}}>Sign out</button>
+        </div>
+      </nav>
+      <main className="main">
+        <header className="hdr">
+          <h1 style={{fontSize:15,fontWeight:600}}>{titles[tab]}</h1>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{width:7,height:7,borderRadius:'50%',background:C.green,display:'inline-block'}}/>
+            <span style={{fontSize:12,color:C.text2}}>smarterquit.com</span>
+          </div>
+        </header>
+        <div className="wrap">
+          {tab==='overview'  && <OverviewTab  onNav={setTab}/>}
+          {tab==='analytics' && <AnalyticsTab/>}
+          {tab==='users'     && <UsersTab/>}
+          {tab==='reviews'   && <ReviewsTab/>}
+          {tab==='blog'      && <BlogTab/>}
+        </div>
+      </main>
     </div>
   )
 }

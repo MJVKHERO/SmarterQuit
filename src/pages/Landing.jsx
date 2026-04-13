@@ -144,6 +144,204 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* APP SCREENSHOTS / MOCKUPS */}
+      <section style={{padding:'72px 24px',background:'var(--bg)'}}>
+        <div style={{maxWidth:900,margin:'0 auto'}}>
+          <p style={SL}>Inside the app</p>
+          <h2 className="sr" style={{...ST,marginBottom:12}}>See exactly what you're getting.</h2>
+          <p className="sr" style={{textAlign:'center',color:'var(--muted)',fontSize:16,marginBottom:52,maxWidth:520,margin:'0 auto 52px'}}>
+            No download needed. Opens instantly in your browser. Works on any phone, tablet, or computer.
+          </p>
+
+          {/* Phone mockups row */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:24,alignItems:'start'}}>
+
+            {/* Mockup 1: Dashboard */}
+            <div className="sr">
+              <PhoneMockup label="Your daily dashboard">
+                {/* Header */}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:18,letterSpacing:'0.05em',color:'#f0f4f8'}}>Smarter<span style={{color:'#00e676'}}>Quit</span></span>
+                  <div style={{textAlign:'right'}}>
+                    <div style={{fontSize:8,color:'#5a7a96',textTransform:'uppercase'}}>Day</div>
+                    <div style={{fontSize:20,fontWeight:800,color:'#40c4ff',lineHeight:1}}>7<span style={{color:'#5a7a96',fontSize:11}}>/21</span></div>
+                  </div>
+                </div>
+                {/* Progress */}
+                <div style={{height:3,background:'#1a2535',borderRadius:2,marginBottom:10}}>
+                  <div style={{height:'100%',width:'33%',background:'#40c4ff',borderRadius:2}}/>
+                </div>
+                {/* Coach message */}
+                <div style={{background:'rgba(64,196,255,0.08)',border:'1px solid rgba(64,196,255,0.2)',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
+                  <p style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:11,color:'#f0f4f8',margin:'0 0 3px',lineHeight:1.5}}>Day 7. You beat the hardest week. Most people don't make it here.</p>
+                  <p style={{fontSize:9,color:'#5a7a96',margin:0}}>Physical withdrawal is largely over now.</p>
+                </div>
+                {/* Stats */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+                  <div style={{background:'#111820',border:'1px solid rgba(0,230,118,0.3)',borderRadius:8,padding:'10px',textAlign:'center'}}>
+                    <div style={{fontSize:8,color:'#00e676',textTransform:'uppercase',marginBottom:3}}>💰 Saved</div>
+                    <div style={{fontSize:18,fontWeight:800,color:'#00e676',fontFamily:"'Bebas Neue',Impact,sans-serif"}}> $23.17</div>
+                    <div style={{fontSize:8,color:'#5a7a96',marginTop:2}}>and counting</div>
+                  </div>
+                  <div style={{background:'#111820',border:'1px solid #1a2535',borderRadius:8,padding:'10px',textAlign:'center'}}>
+                    <div style={{fontSize:8,color:'#5a7a96',textTransform:'uppercase',marginBottom:3}}>🚭 Not smoked</div>
+                    <div style={{fontSize:18,fontWeight:800,color:'#f0f4f8',fontFamily:"'Bebas Neue',Impact,sans-serif"}}>140</div>
+                    <div style={{fontSize:8,color:'#5a7a96',marginTop:2}}>cigarettes</div>
+                  </div>
+                </div>
+                {/* Day card */}
+                <div style={{background:'#111820',border:'1px solid #1a2535',borderLeft:'3px solid #40c4ff',borderRadius:8,padding:'10px 12px'}}>
+                  <div style={{fontSize:8,color:'#40c4ff',textTransform:'uppercase',fontWeight:700,marginBottom:3}}>Day 7 · Detox</div>
+                  <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:12,color:'#f0f4f8',marginBottom:4}}>One Full Week</div>
+                  <div style={{fontSize:9,color:'#5a7a96',lineHeight:1.4,marginBottom:8}}>Cravings are getting shorter. The neural pathway is weakening every day you don't feed it.</div>
+                  <div style={{background:'#40c4ff',borderRadius:5,padding:'5px 10px',textAlign:'center',fontSize:9,fontWeight:700,color:'#000'}}>Read now →</div>
+                </div>
+              </PhoneMockup>
+              <p style={{textAlign:'center',fontSize:13,color:'var(--muted)',marginTop:12}}>Daily dashboard with personal coach message</p>
+            </div>
+
+            {/* Mockup 2: Breathing timer */}
+            <div className="sr">
+              <PhoneMockup label="3-minute craving timer">
+                <div style={{textAlign:'center',padding:'8px 0'}}>
+                  <div style={{fontSize:10,color:'#ff7043',textTransform:'uppercase',fontWeight:700,letterSpacing:'0.08em',marginBottom:12}}>😤 Stress trigger</div>
+                  {/* Timer circle */}
+                  <div style={{width:100,height:100,borderRadius:'50%',background:'rgba(255,112,67,0.12)',border:'2px solid #ff7043',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                    <div style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:32,color:'#ff7043',lineHeight:1}}>3</div>
+                  </div>
+                  <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:14,color:'#f0f4f8',marginBottom:4}}>Breathe in...</div>
+                  <div style={{fontSize:10,color:'#5a7a96',marginBottom:16}}>Through your nose</div>
+                  {/* Phase indicators */}
+                  <div style={{display:'flex',gap:6,justifyContent:'center',marginBottom:14}}>
+                    {[['In','4s',true],['Hold','4s',false],['Out','6s',false]].map(([l,t,a])=>(
+                      <div key={l} style={{flex:1,background:a?'rgba(255,112,67,0.15)':'#111820',border:`1px solid ${a?'#ff7043':'#1a2535'}`,borderRadius:6,padding:'6px 4px',textAlign:'center'}}>
+                        <div style={{fontSize:9,fontWeight:700,color:a?'#ff7043':'#5a7a96'}}>{l}</div>
+                        <div style={{fontSize:8,color:'#5a7a96'}}>{t}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{height:3,background:'#1a2535',borderRadius:2,marginBottom:10}}>
+                    <div style={{height:'100%',width:'15%',background:'#00e676',borderRadius:2}}/>
+                  </div>
+                  <div style={{fontSize:9,color:'#5a7a96'}}>2:45 remaining</div>
+                </div>
+              </PhoneMockup>
+              <p style={{textAlign:'center',fontSize:13,color:'var(--muted)',marginTop:12}}>3-minute breathing timer for every craving</p>
+            </div>
+
+            {/* Mockup 3: Day content */}
+            <div className="sr">
+              <PhoneMockup label="Daily science content">
+                {/* Header */}
+                <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:12}}>
+                  <div style={{background:'rgba(0,230,118,0.1)',border:'1px solid rgba(0,230,118,0.3)',borderRadius:5,padding:'3px 8px',fontSize:8,color:'#00e676',fontWeight:700}}>FREEDOM · DAY 14</div>
+                </div>
+                <div style={{textAlign:'center',marginBottom:12}}>
+                  <div style={{fontSize:28,marginBottom:6}}>🪞</div>
+                  <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:13,color:'#f0f4f8',marginBottom:3}}>The Mirror</div>
+                  <div style={{fontSize:9,color:'#5a7a96'}}>Stop saying you're trying to quit.</div>
+                </div>
+                {/* Intro block */}
+                <div style={{background:'#111820',borderLeft:'2px solid #00e676',borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:8}}>
+                  <p style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:9,color:'#f0f4f8',margin:0,lineHeight:1.5}}>There's a word shift that happens around Day 14. People stop saying "I'm trying to quit" and start saying "I don't smoke."</p>
+                </div>
+                {/* Science block */}
+                <div style={{background:'#111820',border:'1px solid #1a2535',borderRadius:8,padding:'8px 10px',marginBottom:8}}>
+                  <div style={{fontSize:7,color:'#40c4ff',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>🔬 The science</div>
+                  <p style={{fontSize:9,color:'rgba(240,244,248,0.85)',margin:0,lineHeight:1.5}}>Identity-based habits have a measurably higher success rate than goal-based ones. "I don't smoke" is an identity. "I quit smoking" is a goal with exceptions.</p>
+                </div>
+                {/* Insight */}
+                <div style={{background:'rgba(0,230,118,0.08)',border:'1px solid rgba(0,230,118,0.25)',borderRadius:8,padding:'8px 10px'}}>
+                  <div style={{fontSize:7,color:'#00e676',textTransform:'uppercase',fontWeight:700,marginBottom:3}}>💡 Key insight</div>
+                  <p style={{fontSize:9,color:'#f0f4f8',margin:0,lineHeight:1.5}}>"I don't smoke" — say it out loud. It's yours now.</p>
+                </div>
+              </PhoneMockup>
+              <p style={{textAlign:'center',fontSize:13,color:'var(--muted)',marginTop:12}}>21 days of science-backed content</p>
+            </div>
+
+            {/* Mockup 4: Pattern analysis */}
+            <div className="sr">
+              <PhoneMockup label="Your personal craving map">
+                <div style={{marginBottom:12}}>
+                  <div style={{fontFamily:'Georgia,serif',fontStyle:'italic',fontSize:13,color:'#f0f4f8',marginBottom:4}}>Your craving profile</div>
+                  <div style={{fontSize:9,color:'#5a7a96'}}>Based on 23 logged cravings</div>
+                </div>
+                {/* When section */}
+                <div style={{background:'#111820',border:'1px solid #1a2535',borderRadius:8,padding:'10px',marginBottom:8}}>
+                  <div style={{fontSize:7,color:'#40c4ff',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>⏰ When cravings hit</div>
+                  <div style={{display:'flex',alignItems:'flex-end',gap:2,height:28,marginBottom:4}}>
+                    {[2,1,1,0,0,0,8,6,4,3,2,1,3,2,1,2,3,4,5,3,2,1,1,1].map((v,i)=>(
+                      <div key={i} style={{flex:1,height:`${Math.max(3,(v/8)*26)}px`,background:i===6?'#ff5252':v>0?'rgba(0,230,118,0.5)':'rgba(255,255,255,0.05)',borderRadius:1}}/>
+                    ))}
+                  </div>
+                  <div style={{fontSize:7,color:'#5a7a96'}}>Peak: <span style={{color:'#ff5252',fontWeight:700}}>7am</span> — morning nicotine low</div>
+                </div>
+                {/* Triggers */}
+                <div style={{background:'#111820',border:'1px solid #1a2535',borderRadius:8,padding:'10px',marginBottom:8}}>
+                  <div style={{fontSize:7,color:'#ffd600',textTransform:'uppercase',fontWeight:700,marginBottom:6}}>🎯 Top triggers</div>
+                  {[['😤 Stress','65%','#ff5252'],['🔁 Habit','20%','#40c4ff'],['😴 Boredom','15%','#7c4dff']].map(([l,p,c])=>(
+                    <div key={l} style={{marginBottom:5}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:8,marginBottom:2}}>
+                        <span style={{color:'#f0f4f8'}}>{l}</span>
+                        <span style={{color:c,fontWeight:700}}>{p}</span>
+                      </div>
+                      <div style={{height:4,background:'#0d1117',borderRadius:2}}>
+                        <div style={{height:'100%',width:p,background:c,borderRadius:2}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Beaten */}
+                <div style={{background:'rgba(0,230,118,0.08)',border:'1px solid rgba(0,230,118,0.25)',borderRadius:8,padding:'8px 10px',display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{fontSize:20,fontWeight:800,color:'#00e676',flexShrink:0}}>18</div>
+                  <div style={{fontSize:9,color:'#5a7a96',lineHeight:1.4}}>cravings beaten. Each one weakened the neural pathway.</div>
+                </div>
+              </PhoneMockup>
+              <p style={{textAlign:'center',fontSize:13,color:'var(--muted)',marginTop:12}}>Personal pattern analysis from your data</p>
+            </div>
+
+          </div>
+
+          {/* No download note */}
+          <div className="sr" style={{textAlign:'center',marginTop:40,padding:'20px',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:14,maxWidth:500,margin:'40px auto 0'}}>
+            <div style={{fontSize:28,marginBottom:8}}>🌐</div>
+            <div style={{fontWeight:700,fontSize:15,color:'var(--white)',marginBottom:4}}>No app to download</div>
+            <p style={{color:'var(--muted)',fontSize:14,margin:0,lineHeight:1.6}}>Everything runs in your browser. Works on iPhone, Android, desktop. Bookmark it or add it to your home screen for instant access.</p>
+          </div>
+
+        </div>
+      </section>
+        <div style={{maxWidth:700,margin:'0 auto'}}>
+          <p style={SL}>The 21-day journey</p>
+          <h2 className="sr" style={{...ST,marginBottom:48}}>What actually happens,<br/>day by day.</h2>
+          <div style={{display:'flex',flexDirection:'column',gap:0}}>
+            {[
+              {day:'Day 1',color:'var(--gold)',icon:'👁️',title:'You still smoke today.',desc:'Your only job is to log every cigarette before you light up. Rate the craving. Name the trigger. Log the satisfaction after. By tonight you\'ll see your habit more clearly than ever before.'},
+              {day:'Day 3',color:'var(--gold)',icon:'🗺️',title:'You understand the trap.',desc:'Three days of data. You can see exactly when your cravings hit, what triggers them, and how much less satisfying each cigarette was compared to what your brain promised. Tonight you smoke your last one — consciously.'},
+              {day:'Day 4',color:'var(--blue)',icon:'⚡',title:'You stop. Cravings hit. You have a timer.',desc:'Every craving peaks and passes in 3 minutes. Not motivation — neuroscience. The breathing timer in the app gets you through every wave. The first day is the loudest. It\'s also the last of the worst.'},
+              {day:'Day 8',color:'var(--blue)',icon:'💪',title:'The physical battle is mostly won.',desc:'Nicotine is long gone. What remains is psychological — habit loops and triggers. But you mapped those on Day 1. You know exactly what\'s coming and when. Your lungs are already measurably better.'},
+              {day:'Day 14',color:'var(--green)',icon:'🪞',title:'You stop saying "I\'m trying to quit."',desc:'You start saying "I don\'t smoke." That shift sounds small. Neurologically, it\'s everything. One is a struggle. The other is an identity. You\'ve earned it.'},
+              {day:'Day 21',color:'var(--green)',icon:'🎉',title:'You\'re free.',desc:'Not as a theory. As a lived reality. 21 days of choosing yourself over a habit that manufactured its own demand. Your savings counter has been running the whole time. Your body has been healing since hour one.'},
+            ].map((step,i)=>(
+              <div key={i} className="sr" style={{display:'flex',gap:20,marginBottom:32,alignItems:'flex-start'}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0}}>
+                  <div style={{width:48,height:48,borderRadius:'50%',background:`${step.color}18`,border:`2px solid ${step.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{step.icon}</div>
+                  {i<5&&<div style={{width:2,height:32,background:'var(--border)',margin:'4px 0'}}/>}
+                </div>
+                <div style={{paddingTop:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                    <span style={{fontFamily:"'Bebas Neue',Impact,sans-serif",fontSize:15,color:step.color,letterSpacing:'0.08em'}}>{step.day}</span>
+                    <span style={{fontWeight:700,fontSize:16,color:'var(--white)'}}>{step.title}</span>
+                  </div>
+                  <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.65}}>{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* PRICE ANCHORING */}
       <div style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',padding:'28px 20px'}}>
         <div style={{maxWidth:720,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'center',gap:32,flexWrap:'wrap'}}>
@@ -356,6 +554,37 @@ function PaymentIcons(){
       </div>
     </div>
   )
+}
+
+function PhoneMockup({children, label}){
+  return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+      <div style={{
+        width:'100%', maxWidth:220,
+        background:'#0d1117',
+        border:'1px solid rgba(255,255,255,0.1)',
+        borderRadius:28,
+        padding:'10px 8px',
+        boxShadow:'0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+        position:'relative',
+      }}>
+        {/* Phone notch */}
+        <div style={{width:60,height:6,background:'rgba(255,255,255,0.06)',borderRadius:3,margin:'0 auto 10px'}}/>
+        {/* Screen */}
+        <div style={{
+          background:'#080c10',
+          borderRadius:20,
+          padding:'14px 12px',
+          minHeight:340,
+          overflow:'hidden',
+        }}>
+          {children}
+        </div>
+        {/* Home indicator */}
+        <div style={{width:50,height:4,background:'rgba(255,255,255,0.1)',borderRadius:2,margin:'10px auto 0'}}/>
+      </div>
+    </div>
+  );
 }
 
 function CalcWidget(){

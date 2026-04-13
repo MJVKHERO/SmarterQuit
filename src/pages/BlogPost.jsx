@@ -97,7 +97,7 @@ export default function BlogPost() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Link to="/blog" style={{ color: S.muted, textDecoration: 'none', fontSize: 14 }}>← Blog</Link>
           <Link to="/" style={{ background: S.green, color: '#000', textDecoration: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 14, fontWeight: 700 }}>
-            Start for $7.99
+            Start for $19.99
           </Link>
         </div>
       </nav>
@@ -176,7 +176,7 @@ export default function BlogPost() {
             Ready to use this method?
           </h3>
           <p style={{ color: S.muted, fontSize: 15, marginBottom: 20 }}>
-            SmarterQuit is the 21-day program built on the science in this article. $7.99. Money-back guarantee.
+            SmarterQuit is the 21-day program built on the science in this article. $19.99. Money-back guarantee.
           </p>
           <Link to="/" style={{ display: 'inline-block', background: S.green, color: '#000', textDecoration: 'none', borderRadius: 10, padding: '13px 28px', fontSize: 15, fontWeight: 800 }}>
             Start My Quit Journey →

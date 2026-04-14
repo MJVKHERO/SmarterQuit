@@ -170,17 +170,44 @@ export default function BlogPost() {
           }
         `}</style>
 
-        {/* CTA mid-article */}
-        <div style={{ background: S.bg3, border: `1px solid rgba(0,230,118,0.2)`, borderRadius: 16, padding: '28px 24px', margin: '48px 0', textAlign: 'center' }}>
-          <h3 style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 22, marginBottom: 8 }}>
-            Ready to use this method?
-          </h3>
-          <p style={{ color: S.muted, fontSize: 15, marginBottom: 20 }}>
-            SmarterQuit is the 21-day program built on the science in this article. $19.99. Money-back guarantee.
-          </p>
-          <Link to="/" style={{ display: 'inline-block', background: S.green, color: '#000', textDecoration: 'none', borderRadius: 10, padding: '13px 28px', fontSize: 15, fontWeight: 800 }}>
-            Start My Quit Journey →
-          </Link>
+        {/* CTA — funnel block */}
+        <div style={{ margin: '56px 0', borderRadius: 20, overflow: 'hidden', border: `1px solid rgba(0,230,118,0.2)` }}>
+          {/* Top bar */}
+          <div style={{ background: 'linear-gradient(90deg, rgba(0,230,118,0.15), rgba(0,230,118,0.05))', padding: '28px 28px 24px', borderBottom: `1px solid rgba(0,230,118,0.12)` }}>
+            <div style={{ fontSize: 11, color: S.green, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+              🚭 The 21-day program based on this science
+            </div>
+            <h3 style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 24, lineHeight: 1.35, color: S.white, margin: 0 }}>
+              SmarterQuit is built around this exact approach — awareness first, then stopping.
+            </h3>
+          </div>
+          {/* Body */}
+          <div style={{ background: 'rgba(0,230,118,0.04)', padding: '24px 28px 28px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
+              {[
+                ['📊', 'Days 1–3', 'Map your exact trigger pattern before you stop'],
+                ['⏱️', '3-min timer', 'Beat every craving — they all peak and pass'],
+                ['🧠', '21 days', 'Daily content built around your specific type'],
+              ].map(([emoji, title, sub]) => (
+                <div key={title} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 20, marginBottom: 6 }}>{emoji}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: S.white, marginBottom: 3 }}>{title}</div>
+                  <div style={{ fontSize: 12, color: S.muted, lineHeight: 1.4 }}>{sub}</div>
+                </div>
+              ))}
+            </div>
+            <a href="https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00" style={{
+              display: 'block', background: S.green, color: '#000', textDecoration: 'none',
+              borderRadius: 12, padding: '17px 24px', fontSize: 16, fontWeight: 800,
+              textAlign: 'center', marginBottom: 10,
+              boxShadow: '0 6px 24px rgba(0,230,118,0.25)',
+            }}>
+              Start Day 1 tonight — $19.99 →
+            </a>
+            <p style={{ fontSize: 12, color: S.muted, textAlign: 'center', margin: 0 }}>
+              Money-back guarantee · No download · Works on any phone
+            </p>
+          </div>
         </div>
 
       </article>

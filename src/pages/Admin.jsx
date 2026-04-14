@@ -92,11 +92,19 @@ function AnalyticsTab(){
     try{
       const since=new Date(Date.now()-range*864e5).toISOString()
       const fiveMin=new Date(Date.now()-5*60000).toISOString()
-      const[{data:all},{data:liveRows}]=await Promise.all([
-        sb.from('page_views').select('path,created_at,session_id,referrer,duration_seconds').gte('created_at',since).order('created_at',{ascending:false}),
+      const[{data:all,error:qErr},{data:liveRows}]=await Promise.all([
+        sb.from('page_views').select('path,created_at,session_id,referrer').gte('created_at',since).order('created_at',{ascending:false}),
         sb.from('page_views').select('session_id').gte('created_at',fiveMin),
       ])
+      if(qErr)throw qErr
       const views=all||[]
+
+      // Duration data — fetched separately, gracefully handles missing column
+      let durViews=[]
+      try{
+        const{data:dv}=await sb.from('page_views').select('path,duration_seconds,session_id').gte('created_at',since).not('duration_seconds','is',null)
+        durViews=dv||[]
+      }catch(e){}
 
       // Live unique visitors
       const liveUnique=new Set((liveRows||[]).map(v=>v.session_id)).size
@@ -142,9 +150,9 @@ function AnalyticsTab(){
       const bounced=Object.values(sessionPages).filter(s=>s.size===1).length
       const bounceRate=uniqueSessions>0?Math.round((bounced/uniqueSessions)*100):0
 
-      // Avg duration per page (only entries with duration)
+      // Avg duration per page — uses separate durViews fetch
       const durByPage={}
-      views.forEach(v=>{
+      durViews.forEach(v=>{
         if(v.duration_seconds>0&&v.duration_seconds<3600){
           if(!durByPage[v.path])durByPage[v.path]=[]
           durByPage[v.path].push(v.duration_seconds)
@@ -372,8 +380,8 @@ function AnalyticsTab(){
                 <tr key={i}>
                   <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtTime(v.created_at)}</td>
                   <td style={{fontWeight:500}}>{fmtPath(v.path)}</td>
-                  <td style={{color:v.duration_seconds>60?C.green:v.duration_seconds>0?C.text2:C.text3,fontSize:12}}>
-                    {v.duration_seconds>0?fmtDur(v.duration_seconds):'—'}
+                  <td style={{color:C.text2,fontSize:12}}>
+                    —
                   </td>
                   <td style={{color:C.text2,fontSize:12}}>
                     {v.referrer?(()=>{try{const h=new URL(v.referrer).hostname.replace('www.','');return h.includes('pinterest')?<span style={{color:'#e60023',fontWeight:600}}>📌 {h}</span>:h}catch(e){return'direct'}})():'direct'}

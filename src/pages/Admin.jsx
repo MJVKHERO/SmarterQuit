@@ -10,9 +10,9 @@ const C = {
   bg:'#f6f6f7', surface:'#ffffff', border:'#e3e3e8', border2:'#d1d1d6',
   text:'#1a1a1a', text2:'#6b7280', text3:'#9ca3af',
   green:'#008060', greenBg:'#f0faf7', greenBd:'#b7dfd5',
-  blue:'#2563eb', blueBg:'#eff6ff',
-  red:'#dc2626', redBg:'#fef2f2',
-  gold:'#d97706', goldBg:'#fffbeb',
+  blue:'#2563eb', blueBg:'#eff6ff', blueBd:'#bfdbfe',
+  red:'#dc2626', redBg:'#fef2f2', redBd:'#fecaca',
+  gold:'#d97706', goldBg:'#fffbeb', goldBd:'#fde68a',
   nav:'#1a1a2e', navText:'rgba(255,255,255,0.6)', navActive:'#ffffff',
 }
 
@@ -26,6 +26,10 @@ const G = `
   .hdr{background:#fff;border-bottom:1px solid ${C.border};padding:0 28px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40}
   .wrap{padding:28px;max-width:1200px}
   .card{background:#fff;border:1px solid ${C.border};border-radius:12px}
+  .card-h{padding:14px 20px;border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between}
+  .card-b{padding:20px}
+  .ch{padding:14px 20px;border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between}
+  .cb{padding:20px}
   .ch{padding:14px 20px;border-bottom:1px solid ${C.border};display:flex;align-items:center;justify-content:space-between}
   .cb{padding:20px}
   .bgg{background:${C.bg}}
@@ -37,6 +41,7 @@ const G = `
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{box-shadow:0 0 0 3px ${C.greenBd}}50%{box-shadow:0 0 0 6px ${C.greenBd}}}
+  @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.3}}
   .fade{animation:fadein .25s ease both}
 `
 

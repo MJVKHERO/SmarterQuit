@@ -14,7 +14,14 @@ const trackView = () => {
   try {
     let sid = sessionStorage.getItem('sq_sid')
     if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
-    sb.from('page_views').insert({ path: '/calc', referrer: document.referrer || null, user_agent: navigator.userAgent, session_id: sid }).then(() => {})
+    const t0 = Date.now()
+    sb.from('page_views').insert({ path: '/calc', referrer: document.referrer || null, user_agent: navigator.userAgent, session_id: sid })
+      .select('id').single().then(({ data }) => {
+        if (!data?.id) return
+        const send = () => { const s = Math.round((Date.now()-t0)/1000); navigator.sendBeacon(`https://srrxlvhggbhkoxiawcsg.supabase.co/rest/v1/page_views?id=eq.${data.id}`, new Blob([JSON.stringify({duration_seconds:s})],{type:'application/json'})) }
+        window.addEventListener('beforeunload', send, {once:true})
+        window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') send() }, {once:true})
+      })
   } catch(e) {}
 }
 

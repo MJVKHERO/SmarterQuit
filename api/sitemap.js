@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   try {
     // Fetch all published blog posts from Supabase
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/blog_posts?select=slug,published_at,updated_at&published=eq.true&order=published_at.desc`,
+      `${SUPABASE_URL}/rest/v1/blog_posts?select=slug,published_at&published=eq.true&order=published_at.desc`,
       {
         headers: {
           "apikey": SUPABASE_KEY,
@@ -16,8 +16,12 @@ export default async function handler(req, res) {
     );
 
     const posts = await response.json();
-
     const today = new Date().toISOString().split("T")[0];
+
+    // If Supabase returned an error object, log it and fall back to empty
+    if (!Array.isArray(posts)) {
+      console.error("Supabase sitemap error:", posts);
+    }
 
     // Static pages
     const staticPages = [
@@ -38,7 +42,7 @@ export default async function handler(req, res) {
 
     // Blog posts
     const blogXml = (Array.isArray(posts) ? posts : []).map(post => {
-      const lastmod = (post.updated_at || post.published_at || today).split("T")[0];
+      const lastmod = post.published_at ? post.published_at.split("T")[0] : today;
       return `
   <url>
     <loc>${BASE_URL}/blog/${post.slug}</loc>

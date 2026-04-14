@@ -7,6 +7,7 @@ import Blog from './pages/Blog'
 import BlogPost from './pages/BlogPost'
 import Admin from './pages/Admin'
 import Calc from './pages/Calc'
+import Quiz from './pages/Quiz'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Refund from './pages/Refund'
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/"        element={<Landing />} />
         <Route path="/app"     element={<App />} />
         <Route path="/calc"    element={<Calc />} />
+        <Route path="/quiz"    element={<Quiz />} />
         <Route path="/blog"    element={<Blog />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="/admin"   element={<Admin />} />

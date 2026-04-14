@@ -53,7 +53,7 @@ export default function Landing() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const go = () => { window.location.href = STRIPE_LINK }
+  const go = () => { window.location.href = '/checkout' }
 
   return (
     <>
@@ -504,6 +504,55 @@ export default function Landing() {
               <div style={{fontSize:11,color:'var(--muted)'}}>{b}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* FOUNDER SECTION */}
+      <section style={{background:'var(--bg)',padding:'72px 24px'}}>
+
+        <div style={{maxWidth:720,margin:'0 auto'}}>
+          <div className="sr" style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:40,alignItems:'center'}}>
+
+            {/* Photo */}
+            <div style={{flexShrink:0}}>
+              <div style={{
+                width:160,height:160,borderRadius:'50%',
+                overflow:'hidden',
+                border:'3px solid rgba(0,230,118,0.3)',
+                boxShadow:'0 0 40px rgba(0,230,118,0.1)',
+                flexShrink:0,
+              }}>
+                <img
+                  src="/marc.jpg"
+                  alt="Marc, founder of SmarterQuit"
+                  style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center top'}}
+                />
+              </div>
+            </div>
+
+            {/* Story */}
+            <div>
+              <div style={{fontSize:12,color:'var(--green)',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>
+                👋 From the founder
+              </div>
+              <h2 style={{fontFamily:"Georgia,serif",fontStyle:'italic',fontSize:'clamp(22px,4vw,30px)',lineHeight:1.3,marginBottom:16,color:'var(--white)'}}>
+                "I built this for myself. Then I realized everyone around me needed it too."
+              </h2>
+              <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.8,marginBottom:12}}>
+                I smoked for years and tried to quit more times than I can count. Patches, gum, willpower — none of it stuck. What finally worked was something I stumbled onto myself: spending a few days actually observing my habit before trying to fight it. Understanding it before stopping it.
+              </p>
+              <p style={{color:'var(--muted)',fontSize:15,lineHeight:1.8,marginBottom:20}}>
+                I built SmarterQuit to turn that approach into a proper program. I use it myself. I know it works because it worked for me — and now I want to give it to as many people as possible for less than the cost of a week of cigarettes.
+              </p>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15,color:'var(--white)'}}>Marc</div>
+                  <div style={{fontSize:13,color:'var(--muted)'}}>Founder, SmarterQuit · Smoke-free since 2024</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
 

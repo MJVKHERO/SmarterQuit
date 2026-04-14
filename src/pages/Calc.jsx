@@ -73,6 +73,7 @@ function getThing(yearly, years) {
 }
 
 export default function Calc() {
+  const [type, setType] = useState('cigarettes') // cigarettes | vaping
   const [cigs, setCigs] = useState('')
   const [spend, setSpend] = useState('')
   const [years, setYears] = useState('')
@@ -84,15 +85,23 @@ export default function Calc() {
     trackView()
   }, [])
 
-  const weeklySpend = parseFloat(spend) || 0
-  const yearlySpend = weeklySpend * 52
-  const cigsPerDay  = parseFloat(cigs) || 0
-  const smokeYears  = parseFloat(years) || 0
-  const totalSpent  = yearlySpend * smokeYears
-  const next10      = yearlySpend * 10
-  const next5       = yearlySpend * 5
+  const weeklySpend  = parseFloat(spend) || 0
+  const yearlySpend  = weeklySpend * 52
+  const amountPerDay = parseFloat(cigs) || 0
+  const smokeYears   = parseFloat(years) || 0
+  const totalSpent   = yearlySpend * smokeYears
+  const next10       = yearlySpend * 10
+  const next5        = yearlySpend * 5
   const monthlySpend = weeklySpend * 4.33
-  const cigsTotal   = cigsPerDay * 365 * smokeYears
+  const totalUnits   = amountPerDay * 365 * smokeYears
+
+  // Type-specific labels
+  const unitLabel     = type === 'cigarettes' ? 'cigarettes' : 'puffs'
+  const unitLabelSing = type === 'cigarettes' ? 'cigarette'  : 'puff'
+  const amountPlaceholder = type === 'cigarettes' ? 'e.g. 20' : 'e.g. 400'
+  const amountQuestion    = type === 'cigarettes'
+    ? 'How many cigarettes per day?'
+    : 'How many puffs per day? (Elf Bar 600 ≈ 400 puffs/day)'
 
   const yearlyAnim = useCountUp(showResult ? Math.round(yearlySpend) : 0)
   const totalAnim  = useCountUp(showResult ? Math.round(totalSpent) : 0, 1200)
@@ -244,9 +253,29 @@ export default function Calc() {
         {/* Input form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 32 }}>
 
+          {/* Type selector */}
           <div className="fadeup fadeup-2">
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(240,244,248,0.55)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-              What do you spend per week on cigarettes or vaping?
+              What are you quitting?
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[['cigarettes','🚬 Cigarettes'],['vaping','💨 Vaping']].map(([v,l]) => (
+                <button key={v} onClick={() => { setType(v); setCigs(''); setShowResult(false) }} style={{
+                  background: type === v ? 'rgba(0,230,118,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: `1.5px solid ${type === v ? '#00e676' : 'rgba(255,255,255,0.1)'}`,
+                  borderRadius: 14, padding: '16px 12px',
+                  color: type === v ? '#00e676' : 'rgba(240,244,248,0.5)',
+                  fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif", transition: 'all .15s',
+                }}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Weekly spend */}
+          <div className="fadeup fadeup-3">
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(240,244,248,0.55)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+              What do you spend per week?
             </label>
             <div style={{ position: 'relative' }}>
               <span style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', fontSize: 22, color: 'rgba(240,244,248,0.3)', fontWeight: 700 }}>$</span>
@@ -267,23 +296,25 @@ export default function Calc() {
             )}
           </div>
 
-          <div className="fadeup fadeup-3">
+          {/* Amount per day */}
+          <div className="fadeup fadeup-4">
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(240,244,248,0.55)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-              How many cigarettes or puffs per day?
+              {amountQuestion}
             </label>
             <input
               className="calc-input"
               type="number"
               inputMode="numeric"
-              placeholder="e.g. 20"
+              placeholder={amountPlaceholder}
               value={cigs}
               onChange={e => setCigs(e.target.value)}
             />
           </div>
 
+          {/* Years */}
           <div className="fadeup fadeup-4">
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(240,244,248,0.55)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-              How many years have you smoked or vaped?
+              How many years have you {type === 'cigarettes' ? 'smoked' : 'vaped'}?
             </label>
             <input
               className="calc-input"
@@ -342,7 +373,7 @@ export default function Calc() {
             </div>
 
             {/* What you've already spent */}
-            {smokeYears > 0 && (
+              {smokeYears > 0 && (
               <div className="fadeup fadeup-1 result-card" style={{ textAlign: 'center', padding: '28px 24px' }}>
                 <div style={{ fontSize: 13, color: 'rgba(240,244,248,0.4)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
                   Already spent in {Math.round(smokeYears)} years
@@ -350,9 +381,9 @@ export default function Calc() {
                 <div className="big-num" style={{ fontSize: 'clamp(52px, 14vw, 72px)', color: '#ffd600' }}>
                   {fmt(totalAnim)}
                 </div>
-                {cigsTotal > 0 && (
+                {totalUnits > 0 && (
                   <div style={{ color: 'rgba(240,244,248,0.4)', fontSize: 14, marginTop: 8 }}>
-                    {Math.round(cigsTotal).toLocaleString()} cigarettes smoked
+                    {Math.round(totalUnits).toLocaleString()} {unitLabel} {type === 'cigarettes' ? 'smoked' : 'inhaled'}
                   </div>
                 )}
               </div>
@@ -415,7 +446,7 @@ export default function Calc() {
                 The habit costs you {fmt(yearlySpend)} a year<br/>and your health on top.
               </p>
               <p style={{ color: 'rgba(240,244,248,0.4)', fontSize: 15, lineHeight: 1.6 }}>
-                SmarterQuit costs $19.99. One time. Less than a week of what you're spending now.
+                SmarterQuit costs $19.99. One time. Less than {type === 'cigarettes' ? 'two packs' : 'two weeks of vaping'} at your current spend.
               </p>
             </div>
 

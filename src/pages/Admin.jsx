@@ -47,6 +47,7 @@ const G = `
 
 const fmtMoney = n => n ? '$'+( n<100 ? Number(n).toFixed(2) : Math.round(n).toLocaleString() ) : '—'
 const fmtDate  = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'
+const fmtShort = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''
 const fmtTime  = d => d ? new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '—'
 const fmtHour  = h => h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`
 const fmtPath  = p => p==='/'?'Home':p==='/app'?'App':p.startsWith('/blog/')?`Blog: ${p.replace('/blog/','')}`:p

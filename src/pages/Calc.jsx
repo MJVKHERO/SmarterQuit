@@ -446,7 +446,11 @@ export default function Calc() {
                 The habit costs you {fmt(yearlySpend)} a year<br/>and your health on top.
               </p>
               <p style={{ color: 'rgba(240,244,248,0.4)', fontSize: 15, lineHeight: 1.6 }}>
-                SmarterQuit costs $19.99. One time. Less than {type === 'cigarettes' ? 'two packs' : 'two weeks of vaping'} at your current spend.
+                SmarterQuit costs $19.99. One time. That's less than{' '}
+                <strong style={{ color: 'rgba(240,244,248,0.75)' }}>
+                  {Math.ceil(19.99 / (weeklySpend / 7))} day{Math.ceil(19.99 / (weeklySpend / 7)) !== 1 ? 's' : ''}
+                </strong>{' '}
+                of what you currently spend.
               </p>
             </div>
 

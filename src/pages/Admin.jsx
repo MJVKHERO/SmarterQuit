@@ -88,21 +88,28 @@ function AnalyticsTab(){
       const since=new Date(Date.now()-range*864e5).toISOString()
       const fiveMin=new Date(Date.now()-5*60000).toISOString()
       const[{data:all},{data:liveRows}]=await Promise.all([
-        sb.from('page_views').select('path,created_at,session_id,referrer').gte('created_at',since).order('created_at',{ascending:false}),
+        sb.from('page_views').select('path,created_at,session_id,referrer,duration_seconds').gte('created_at',since).order('created_at',{ascending:false}),
         sb.from('page_views').select('session_id').gte('created_at',fiveMin),
       ])
       const views=all||[]
+
+      // Live unique visitors
       const liveUnique=new Set((liveRows||[]).map(v=>v.session_id)).size
+
+      // Unique sessions
       const uniqueSessions=new Set(views.map(v=>v.session_id)).size
 
+      // Page counts
       const pageCounts={}
       views.forEach(v=>{pageCounts[v.path]=(pageCounts[v.path]||0)+1})
       const topPages=Object.entries(pageCounts).sort((a,b)=>b[1]-a[1]).slice(0,8)
 
+      // Hourly (last 24h)
       const last24=views.filter(v=>new Date(v.created_at)>new Date(Date.now()-864e5))
       const hourBuckets=Array(24).fill(0)
       last24.forEach(v=>{hourBuckets[new Date(v.created_at).getHours()]++})
 
+      // Daily unique
       const dayUniq={}
       views.forEach(v=>{
         const dd=v.created_at?.split('T')[0]
@@ -110,102 +117,172 @@ function AnalyticsTab(){
       })
       const dayArr=Object.entries(dayUniq).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,s])=>[d,s.size])
 
+      // Referrers — with Pinterest highlighted
       const refMap={}
       views.forEach(v=>{if(v.referrer){try{const h=new URL(v.referrer).hostname.replace('www.','');refMap[h]=(refMap[h]||0)+1}catch(e){}}})
-      const topRefs=Object.entries(refMap).sort((a,b)=>b[1]-a[1]).slice(0,6)
+      const topRefs=Object.entries(refMap).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      const pinterestViews=views.filter(v=>v.referrer&&v.referrer.includes('pinterest')).length
 
+      // Conversions
       const land=pageCounts['/']||0
+      const calcV=pageCounts['/calc']||0
+      const quizV=pageCounts['/quiz']||0
       const app=pageCounts['/app']||0
+      const blogTotal=Object.entries(pageCounts).filter(([p])=>p.startsWith('/blog/')).reduce((a,[,c])=>a+c,0)
       const conv=land>0?((app/land)*100).toFixed(1):'—'
 
+      // Bounce rate — sessions with only 1 page view
+      const sessionPages={}
+      views.forEach(v=>{if(!sessionPages[v.session_id])sessionPages[v.session_id]=new Set();sessionPages[v.session_id].add(v.path)})
+      const bounced=Object.values(sessionPages).filter(s=>s.size===1).length
+      const bounceRate=uniqueSessions>0?Math.round((bounced/uniqueSessions)*100):0
+
+      // Avg duration per page (only entries with duration)
+      const durByPage={}
+      views.forEach(v=>{
+        if(v.duration_seconds>0&&v.duration_seconds<3600){
+          if(!durByPage[v.path])durByPage[v.path]=[]
+          durByPage[v.path].push(v.duration_seconds)
+        }
+      })
+      const avgDur={}
+      Object.entries(durByPage).forEach(([p,arr])=>{avgDur[p]=Math.round(arr.reduce((a,b)=>a+b,0)/arr.length)})
+      const overallAvgDur=Object.values(avgDur).length>0?Math.round(Object.values(avgDur).reduce((a,b)=>a+b,0)/Object.values(avgDur).length):null
+
+      // Sparkline
       const spark=Array(7).fill(0)
       const tod=new Date();tod.setHours(0,0,0,0)
       views.forEach(v=>{const dd=new Date(v.created_at);dd.setHours(0,0,0,0);const diff=Math.floor((tod-dd)/864e5);if(diff>=0&&diff<7)spark[6-diff]++})
 
-      setD({total:views.length,uniqueSessions,liveUnique,topPages,hourBuckets,dayArr,topRefs,land,app,conv,spark,recent:views.slice(0,30)})
+      setD({total:views.length,uniqueSessions,liveUnique,topPages,hourBuckets,dayArr,topRefs,land,calcV,quizV,app,blogTotal,conv,bounceRate,avgDur,overallAvgDur,spark,pinterestViews,recent:views.slice(0,40)})
       setStamp(new Date())
     }catch(e){console.error(e)}
     setLoading(false)
   },[range])
 
-  useEffect(()=>{load()},[load])
+  useEffect(()=>{setLoading(true);load()},[load])
   useEffect(()=>{const i=setInterval(load,30000);return()=>clearInterval(i)},[load])
 
-  if(loading)return <div style={{display:'flex',alignItems:'center',gap:10,padding:'48px 0',color:C.text2}}><Spinner/>Loading analytics...</div>
+  if(loading)return <div style={{display:'flex',alignItems:'center',gap:10,padding:'48px 0',color:C.text2}}><div className="spin"/><span>Loading analytics…</span></div>
   if(!d)return <p style={{color:C.red}}>Failed to load.</p>
 
   const maxH=Math.max(...d.hourBuckets,1)
   const maxD=Math.max(...d.dayArr.map(r=>r[1]),1)
+  const curHour=new Date().getHours()
+  const fmtDur=(s)=>{if(!s)return'—';if(s<60)return`${s}s`;return`${Math.floor(s/60)}m ${s%60}s`}
 
   return(
     <div className="fade">
+
       {/* Toolbar */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,background:C.greenBg,border:`1px solid ${C.greenBd}`,borderRadius:8,padding:'7px 14px'}}>
-          <span style={{width:8,height:8,borderRadius:'50%',background:C.green,display:'inline-block',boxShadow:`0 0 0 3px ${C.greenBd}`,animation:'pulse 2s ease infinite'}}/>
+        <div style={{display:'flex',alignItems:'center',gap:10,background:C.greenBg,border:`1px solid ${C.greenBd}`,borderRadius:8,padding:'8px 16px'}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:C.green,display:'inline-block',animation:'livepulse 2s ease infinite'}}/>
           <span style={{fontSize:13,fontWeight:600,color:C.green}}>
             {d.liveUnique} unique visitor{d.liveUnique!==1?'s':''} right now
           </span>
-          <span style={{fontSize:11,color:C.green,opacity:.6}}>· last 5 min · {stamp?`updated ${fmtTime(stamp)}`:''}</span>
+          <span style={{fontSize:11,color:C.green,opacity:.65}}>· last 5 min{stamp?` · ${fmtTime(stamp)}`:''}</span>
         </div>
         <div style={{display:'flex',gap:4}}>
           {[[1,'24h'],[7,'7 days'],[30,'30 days']].map(([v,l])=>(
-            <button key={v} onClick={()=>setRange(v)} style={{background:range===v?C.text:'#fff',color:range===v?'#fff':C.text2,border:`1px solid ${range===v?C.text:C.border2}`,borderRadius:7,padding:'6px 12px',fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',transition:'all .15s'}}>{l}</button>
+            <button key={v} onClick={()=>setRange(v)} style={{background:range===v?C.text:C.surface,color:range===v?'#fff':C.text2,border:`1px solid ${range===v?C.text:C.border2}`,borderRadius:7,padding:'6px 14px',fontSize:12,fontWeight:500,cursor:'pointer',transition:'all .15s'}}>{l}</button>
           ))}
         </div>
       </div>
 
       {/* KPI row */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:14,marginBottom:24}}>
-        {[
-          {label:'Total views',      val:d.total,           sub:'all pages',     color:C.blue,  spark:d.spark},
-          {label:'Unique visitors',  val:d.uniqueSessions,  sub:'unique sessions',color:C.green, spark:null},
-          {label:'Landing views',    val:d.land,            sub:'homepage',       color:C.text,  spark:null},
-          {label:'App opens',        val:d.app,             sub:'paid users',     color:C.green, spark:null},
-          {label:'Conversion rate',  val:`${d.conv}%`,      sub:'landing→app',    color:parseFloat(d.conv)>2?C.green:C.gold, spark:null},
-        ].map(({label,val,sub,color,spark})=>(
-          <div key={label} style={{background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:18}}>
-            <div style={{fontSize:11,fontWeight:500,color:C.text2,marginBottom:8,textTransform:'uppercase',letterSpacing:'.04em'}}>{label}</div>
-            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:8}}>
-              <div>
-                <div style={{fontSize:26,fontWeight:700,color,lineHeight:1}}>{val}</div>
-                <div style={{fontSize:11,color:C.text3,marginTop:3}}>{sub}</div>
-              </div>
-              {spark&&<Sparkline data={spark} color={color}/>}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'16px 18px'}}>
+          <div style={{fontSize:11,fontWeight:500,color:C.text2,marginBottom:8}}>Page views</div>
+          <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+            <div>
+              <div style={{fontSize:26,fontWeight:700,color:C.blue,lineHeight:1}}>{d.total}</div>
+              <div style={{fontSize:11,color:C.text3,marginTop:3}}>all pages</div>
             </div>
+            <Sparkline data={d.spark} color={C.blue}/>
+          </div>
+        </div>
+        {[
+          {label:'Unique visitors', val:d.uniqueSessions, sub:'by session',       color:C.green},
+          {label:'Bounce rate',     val:`${d.bounceRate}%`, sub:'single-page visits', color:d.bounceRate>70?C.red:d.bounceRate>50?C.gold:C.green},
+          {label:'Avg. time on site',val:fmtDur(d.overallAvgDur), sub:'across all pages', color:C.text},
+          {label:'Pinterest visits', val:d.pinterestViews, sub:'from ads & organic', color:'#e60023'},
+          {label:'Conv. rate',       val:`${d.conv}%`,    sub:'landing → app',    color:parseFloat(d.conv)>2?C.green:C.gold},
+        ].map(({label,val,sub,color})=>(
+          <div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:'16px 18px'}}>
+            <div style={{fontSize:11,fontWeight:500,color:C.text2,marginBottom:8}}>{label}</div>
+            <div style={{fontSize:24,fontWeight:700,color,lineHeight:1,marginBottom:3}}>{val}</div>
+            <div style={{fontSize:11,color:C.text3}}>{sub}</div>
           </div>
         ))}
+      </div>
+
+      {/* FUNNEL */}
+      <div className="card" style={{marginBottom:16}}>
+        <div className="card-h">
+          <span style={{fontSize:13,fontWeight:600}}>Conversion funnel</span>
+          <span style={{fontSize:11,color:C.text3}}>Where do people go — and where do they drop off?</span>
+        </div>
+        <div className="card-b">
+          <div style={{display:'flex',alignItems:'stretch',gap:2}}>
+            {[
+              {label:'Landing',    val:d.land,   color:C.blue,  icon:'🏠'},
+              {label:'Blog',       val:d.blogTotal,color:'#7c3aed',icon:'📝'},
+              {label:'Calculator', val:d.calcV,  color:C.gold,  icon:'🧮'},
+              {label:'Quiz',       val:d.quizV,  color:'#06b6d4',icon:'🧠'},
+              {label:'App (paid)', val:d.app,    color:C.green, icon:'💳'},
+            ].map(({label,val,color,icon},i,arr)=>{
+              const prev=i===0?null:arr[i-1].val
+              const pct=prev&&prev>0?Math.round((val/prev)*100):null
+              const maxVal=arr[0].val||1
+              return(
+                <div key={label} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
+                  <div style={{fontSize:11,fontWeight:600,color:C.text2,textAlign:'center'}}>{icon} {label}</div>
+                  <div style={{width:'100%',background:C.bg,borderRadius:4,height:80,display:'flex',alignItems:'flex-end',overflow:'hidden'}}>
+                    <div style={{width:'100%',height:`${Math.max(4,((val||0)/maxVal)*100)}%`,background:color,borderRadius:'4px 4px 0 0',transition:'height .4s',opacity:0.85}}/>
+                  </div>
+                  <div style={{fontSize:16,fontWeight:700,color}}>{val||0}</div>
+                  {pct!==null&&(
+                    <div style={{fontSize:10,color:pct>30?C.green:pct>10?C.gold:C.red,fontWeight:600,background:pct>30?C.greenBg:pct>10?C.goldBg:C.redBg,border:`1px solid ${pct>30?C.greenBd:pct>10?C.goldBd:C.redBd}`,borderRadius:4,padding:'2px 6px'}}>
+                      {pct}% through
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Charts */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
         <div className="card">
-          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Visitors by hour</span><span style={{fontSize:11,color:C.text3}}>Last 24h · current hour highlighted</span></div>
-          <div className="cb">
-            <div style={{display:'flex',alignItems:'flex-end',gap:3,height:80}}>
+          <div className="card-h"><span style={{fontSize:13,fontWeight:600}}>Visitors by hour</span><span style={{fontSize:11,color:C.text3}}>Last 24h · green = now</span></div>
+          <div className="card-b">
+            <div style={{display:'flex',alignItems:'flex-end',gap:2,height:72}}>
               {d.hourBuckets.map((v,i)=>(
-                <div key={i} title={`${fmtHour(i)}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxH)*78)}px`,background:i===new Date().getHours()?C.green:v>0?'#93c5fd':C.border,borderRadius:'3px 3px 0 0',transition:'height .3s'}}/>
+                <div key={i} title={`${fmtHour(i)}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxH)*70)}px`,background:i===curHour?C.green:v>0?'#93c5fd':C.border,borderRadius:'3px 3px 0 0',transition:'height .4s'}}/>
               ))}
             </div>
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:10,color:C.text3}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:9,color:C.text3}}>
               {['12am','3am','6am','9am','12pm','3pm','6pm','9pm'].map(l=><span key={l}>{l}</span>)}
             </div>
           </div>
         </div>
         <div className="card">
-          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Unique visitors per day</span><span style={{fontSize:11,color:C.text3}}>{range===1?'24h':`Last ${range} days`}</span></div>
-          <div className="cb">
+          <div className="card-h"><span style={{fontSize:13,fontWeight:600}}>Daily unique visitors</span></div>
+          <div className="card-b">
             {d.dayArr.length<2
-              ?<div style={{height:80,display:'flex',alignItems:'center',justifyContent:'center',color:C.text3,fontSize:13}}>Not enough data yet</div>
+              ?<div style={{height:72,display:'flex',alignItems:'center',justifyContent:'center',color:C.text3,fontSize:13}}>Not enough data yet</div>
               :<>
-                <div style={{display:'flex',alignItems:'flex-end',gap:4,height:80}}>
+                <div style={{display:'flex',alignItems:'flex-end',gap:4,height:72}}>
                   {d.dayArr.map(([dd,v])=>(
-                    <div key={dd} title={`${new Date(dd).toLocaleDateString('en',{month:'short',day:'numeric'})}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxD)*78)}px`,background:'#60a5fa',borderRadius:'3px 3px 0 0',transition:'height .3s'}}/>
+                    <div key={dd} title={`${fmtShort(dd)}: ${v}`} style={{flex:1,height:`${Math.max(2,(v/maxD)*70)}px`,background:'#60a5fa',borderRadius:'3px 3px 0 0'}}/>
                   ))}
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:10,color:C.text3}}>
-                  {d.dayArr.length>0&&<span>{new Date(d.dayArr[0][0]).toLocaleDateString('en',{month:'short',day:'numeric'})}</span>}
-                  {d.dayArr.length>1&&<span>{new Date(d.dayArr[d.dayArr.length-1][0]).toLocaleDateString('en',{month:'short',day:'numeric'})}</span>}
+                <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:9,color:C.text3}}>
+                  {d.dayArr.length>0&&<span>{fmtShort(d.dayArr[0][0])}</span>}
+                  {d.dayArr.length>1&&<span>{fmtShort(d.dayArr[d.dayArr.length-1][0])}</span>}
                 </div>
               </>
             }
@@ -213,21 +290,23 @@ function AnalyticsTab(){
         </div>
       </div>
 
-      {/* Pages + Sources */}
+      {/* Pages + time on page */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
         <div className="card">
-          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Top pages</span></div>
+          <div className="card-h"><span style={{fontSize:13,fontWeight:600}}>Top pages</span></div>
           <div style={{padding:'6px 0'}}>
             {d.topPages.length===0
               ?<p style={{padding:'12px 20px',color:C.text3,fontSize:13}}>No data yet</p>
               :d.topPages.map(([path,count],i)=>{
                 const pct=Math.round((count/d.topPages[0][1])*100)
+                const dur=d.avgDur[path]
                 return(
                   <div key={path} style={{padding:'8px 20px',position:'relative',overflow:'hidden'}}>
-                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'rgba(37,99,235,0.06)'}}/>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'rgba(37,99,235,0.05)'}}/>
                     <div style={{position:'relative',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                      <div style={{fontSize:13,fontWeight:500}}>{fmtPath(path)}</div>
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:13,fontWeight:500}}>{fmtPath(path)}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:10}}>
+                        {dur&&<span style={{fontSize:11,color:C.text3}}>⏱ {fmtDur(dur)}</span>}
                         <span style={{fontSize:12,color:C.text2}}>{count}</span>
                         {i===0&&<Badge type="green">Top</Badge>}
                       </div>
@@ -238,18 +317,23 @@ function AnalyticsTab(){
             }
           </div>
         </div>
+
         <div className="card">
-          <div className="ch"><span style={{fontSize:13,fontWeight:600}}>Traffic sources</span></div>
+          <div className="card-h"><span style={{fontSize:13,fontWeight:600}}>Traffic sources</span></div>
           <div style={{padding:'6px 0'}}>
             {d.topRefs.length===0
-              ?<p style={{padding:'12px 20px',color:C.text3,fontSize:13}}>No referrer data yet — most visits are direct.</p>
+              ?<p style={{padding:'12px 20px',color:C.text3,fontSize:13}}>No referrer data yet.</p>
               :d.topRefs.map(([ref,count])=>{
                 const pct=Math.round((count/d.topRefs[0][1])*100)
+                const isPinterest=ref.includes('pinterest')
                 return(
                   <div key={ref} style={{padding:'8px 20px',position:'relative',overflow:'hidden'}}>
-                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:'rgba(217,119,6,0.06)'}}/>
-                    <div style={{position:'relative',display:'flex',justifyContent:'space-between'}}>
-                      <span style={{fontSize:13,fontWeight:500}}>{ref}</span>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:isPinterest?'rgba(230,0,35,0.05)':'rgba(217,119,6,0.05)'}}/>
+                    <div style={{position:'relative',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:13,fontWeight:500}}>{ref}</span>
+                        {isPinterest&&<Badge type="red">Pinterest</Badge>}
+                      </div>
                       <span style={{fontSize:12,color:C.text2}}>{count}</span>
                     </div>
                   </div>
@@ -266,28 +350,33 @@ function AnalyticsTab(){
         </div>
       </div>
 
-      {/* Recent */}
+      {/* Recent visitors */}
       <div className="card">
-        <div className="ch">
+        <div className="card-h">
           <span style={{fontSize:13,fontWeight:600}}>Recent visitors</span>
-          <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:C.text3}}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:C.green,display:'inline-block'}}/>
-            Live · refreshes every 30s
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:C.green,display:'inline-block',animation:'livepulse 2s ease infinite'}}/>
+            <span style={{fontSize:11,color:C.text3}}>Live · refreshes every 30s</span>
           </div>
         </div>
         <div style={{overflowX:'auto'}}>
           <table>
-            <thead><tr><th>Time</th><th>Page</th><th>Source</th><th>Session</th></tr></thead>
+            <thead><tr><th>Time</th><th>Page</th><th>Time on page</th><th>Source</th><th>Session</th></tr></thead>
             <tbody>
               {d.recent.map((v,i)=>(
                 <tr key={i}>
                   <td style={{color:C.text2,whiteSpace:'nowrap',fontSize:12}}>{fmtTime(v.created_at)}</td>
                   <td style={{fontWeight:500}}>{fmtPath(v.path)}</td>
-                  <td style={{color:C.text2}}>{v.referrer?(()=>{try{return new URL(v.referrer).hostname.replace('www.','')}catch(e){return'direct'}})():'direct'}</td>
+                  <td style={{color:v.duration_seconds>60?C.green:v.duration_seconds>0?C.text2:C.text3,fontSize:12}}>
+                    {v.duration_seconds>0?fmtDur(v.duration_seconds):'—'}
+                  </td>
+                  <td style={{color:C.text2,fontSize:12}}>
+                    {v.referrer?(()=>{try{const h=new URL(v.referrer).hostname.replace('www.','');return h.includes('pinterest')?<span style={{color:'#e60023',fontWeight:600}}>📌 {h}</span>:h}catch(e){return'direct'}})():'direct'}
+                  </td>
                   <td style={{color:C.text3,fontFamily:'monospace',fontSize:11}}>{v.session_id?.slice(0,8)}…</td>
                 </tr>
               ))}
-              {d.recent.length===0&&<tr><td colSpan={4} style={{textAlign:'center',color:C.text3,padding:'32px'}}>No visits recorded yet</td></tr>}
+              {d.recent.length===0&&<tr><td colSpan={5} style={{textAlign:'center',color:C.text3,padding:32}}>No visits yet</td></tr>}
             </tbody>
           </table>
         </div>

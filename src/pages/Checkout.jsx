@@ -1,5 +1,11 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { createClient } from '@supabase/supabase-js'
+
+const sb = createClient(
+  "https://srrxlvhggbhkoxiawcsg.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNycnhsdmhnZ2Joa294aWF3Y3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjA4MjYsImV4cCI6MjA5MTI5NjgyNn0.CjvRIXYcXJnLCc6-DYbOXbr9fio2TSHo5cexjjUtxCU"
+)
 
 const STRIPE = "https://buy.stripe.com/7sYdRbakd1zY4eUdXN5Vu00"
 
@@ -7,6 +13,18 @@ export default function Checkout() {
   useEffect(() => {
     window.scrollTo(0, 0)
     document.title = 'Start Your Program — SmarterQuit'
+    try {
+      let sid = sessionStorage.getItem('sq_sid')
+      if (!sid) { sid = crypto.randomUUID(); sessionStorage.setItem('sq_sid', sid) }
+      const t0 = Date.now()
+      sb.from('page_views').insert({ path: '/checkout', referrer: document.referrer||null, user_agent: navigator.userAgent, session_id: sid })
+        .select('id').single().then(({ data }) => {
+          if (!data?.id) return
+          const send = () => { const s = Math.round((Date.now()-t0)/1000); navigator.sendBeacon(`https://srrxlvhggbhkoxiawcsg.supabase.co/rest/v1/page_views?id=eq.${data.id}`, new Blob([JSON.stringify({duration_seconds:s})],{type:'application/json'})) }
+          window.addEventListener('beforeunload', send, {once:true})
+          window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') send() }, {once:true})
+        })
+    } catch(e) {}
   }, [])
 
   return (
